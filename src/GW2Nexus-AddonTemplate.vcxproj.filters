@@ -1,0 +1,64 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="entry.cpp" />
+    <ClCompile Include="service\AddonRenderer.cpp" />
+    <ClCompile Include="service\MapLoaderService.cpp" />
+    <ClCompile Include="service\MapInventory.cpp" />
+    <ClCompile Include="service\CurrentMapService.cpp" />
+    <ClCompile Include="ziplib\src\zip.c" />
+    <ClCompile Include="imgui\imgui.cpp" />
+    <ClCompile Include="imgui\imgui_demo.cpp" />
+    <ClCompile Include="imgui\imgui_draw.cpp" />
+    <ClCompile Include="imgui\imgui_tables.cpp" />
+    <ClCompile Include="imgui\imgui_widgets.cpp" />
+    <ClCompile Include="imgui\imgui_impl_dx11.cpp" />
+    <ClCompile Include="imgui\imgui_impl_win32.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="nexus\Nexus.h" />
+    <ClInclude Include="mumble\Mumble.h" />
+    <ClInclude Include="Constants.h" />
+    <ClInclude Include="Globals.h" />
+    <ClInclude Include="service\AddonRenderer.h" />
+    <ClInclude Include="service\MapLoaderService.h" />
+    <ClInclude Include="httplib\httplib.h" />
+    <ClInclude Include="service\MapInventory.h" />
+    <ClInclude Include="entity\GW2API_Continents.h" />
+    <ClInclude Include="resource.h" />
+    <ClInclude Include="service\AddonInitalize.h" />
+    <ClInclude Include="service\CurrentMapService.h" />
+    <ClInclude Include="ziplib\src\miniz.h" />
+    <ClInclude Include="ziplib\src\zip.h" />
+    <ClInclude Include="imgui\imconfig.h" />
+    <ClInclude Include="imgui\imgui.h" />
+    <ClInclude Include="imgui\imgui_internal.h" />
+    <ClInclude Include="imgui\imstb_rectpack.h" />
+    <ClInclude Include="imgui\imstb_textedit.h" />
+    <ClInclude Include="imgui\imstb_truetype.h" />
+    <ClInclude Include="imgui\imgui_impl_dx11.h" />
+    <ClInclude Include="imgui\imgui_impl_win32.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="imgui">
+      <UniqueIdentifier>{b8dcb93b-2947-498a-8c72-51bb322b9742}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="GW2Nexus-RegionsDisplay.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="maps\maps.zip" />
+    <None Include="zip1.bin" />
+    <None Include="miniz\test.sh" />
+    <None Include="resources\font1.bin" />
+    <None Include="ttf1.bin" />
+  </ItemGroup>
+  <ItemGroup>
+    <Font Include="resources\mapfont_asura.ttf" />
+    <Font Include="resources\mapfont_charr.ttf" />
+    <Font Include="resources\mapfont_human.otf" />
+    <Font Include="resources\mapfont_norn.ttf" />
+    <Font Include="resources\mapfont_sylvari.ttf" />
+  </ItemGroup>
+</Project>
