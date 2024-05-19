@@ -6,6 +6,8 @@
 #include "../imgui/imgui_impl_win32.h"
 #include "../imgui/imgui_impl_dx11.h"
 
+#include <thread>
+
 class Renderer {
 public:
 	Renderer();
@@ -15,6 +17,8 @@ public:
 	void postRender(ImGuiIO& io);
 private:
 	bool fontsLoaded = false;
+	int currentSectorId = -1;
+
 	ImFontAtlas* newFontAtlas = new ImFontAtlas();
 	ImFontAtlas* defaultFontAtlas = nullptr;
 

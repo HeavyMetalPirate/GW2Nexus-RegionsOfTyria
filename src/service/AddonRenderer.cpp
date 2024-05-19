@@ -1,11 +1,22 @@
 #include "AddonRenderer.h"
 //#include <imgui_impl_dx11.h>
 
+/* Proto */
+void centerText(std::string text, float yOffset);
+void fade();
+
+std::thread animationThread;
+bool animating = false;
+bool fadingIn = false;
+float opacity = 0.0f;
+
 Renderer::Renderer() {
 	this->currentMapService = CurrentMapService();
 }
 Renderer::~Renderer() {
-	//this->currentMapService.~CurrentMapService();
+	if (animationThread.joinable()) {
+		animationThread.join();
+	}
 }
 
 void Renderer::preRender(ImGuiIO& io) {
@@ -55,28 +66,60 @@ ImFont* Renderer::loadFont(ImGuiIO& io, std::string path, float size) {
 }
 
 void Renderer::render() {
-	if (ImGui::Begin("MapdetailsFrame", (bool*)0, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize))
-	{
+	ImGuiIO& io = ImGui::GetIO();
+	ImVec2 windowSize = io.DisplaySize;
+	
+	// Make the next Window go over the entire screen for easier calculations
+	ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);
+	ImGui::SetNextWindowSize(windowSize, ImGuiCond_Always);
+	// And make sure to disable all interaction with it properly *cough*
 
-		ImGui::PushFont((ImFont*)NexusLink->Font);
-		if (ImGui::GetFont() == nullptr) {
-			APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, "NexusLink->Font = nullptr");
-		}
-		ImGui::Text("Map Details Frame");
-		ImGui::PopFont();
-
-		MapData* currentMap = currentMapService.getCurrentMap();
-
-		if (currentMap != nullptr) {
-			// Default Font
-			if (ImGui::GetFont() == nullptr) {
-				APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, "Default font = nullptr");
+	MapData* currentMap = currentMapService.getCurrentMap();
+	if(currentMap != nullptr) {
+		if (currentSectorId != currentMap->currentSector.id) {
+			currentSectorId = currentMap->currentSector.id;
+			// we need to render! start the animation thread if not animating already
+			if (!animating) {
+				animationThread = std::thread(fade);
+				animationThread.detach();
 			}
-			ImGui::Text(std::to_string(currentMap->id).c_str());
-			ImGui::Text(currentMap->continentName.c_str());
-			ImGui::Text(currentMap->name.c_str());
-			ImGui::Text(currentMap->currentSector.name.c_str());
+		}
 
+		if (ImGui::Begin("MapdetailsFrame", (bool*)0, 
+			ImGuiWindowFlags_NoTitleBar | 
+			ImGuiWindowFlags_NoCollapse | 
+			ImGuiWindowFlags_NoResize | 
+			ImGuiWindowFlags_NoBackground |
+			ImGuiWindowFlags_NoMove | 
+			ImGuiWindowFlags_NoInputs | 
+			ImGuiWindowFlags_NoMouseInputs))
+		{
+			// Default Font
+			// Sector name in nice and big
+			ImFont* font = (ImFont*)NexusLink->FontBig;
+			float originalFontScale = font->Scale;
+			font->Scale = 1.5f;
+
+			ImGui::PushFont((ImFont*)NexusLink->FontBig);
+			centerText(currentMap->currentSector.name, 3.5f);
+			font->Scale = originalFontScale;
+			ImGui::PopFont();
+
+			// Map + Region + Continent (maybe we can figure this out in settings what user wants?)
+			ImGui::PushFont((ImFont*)NexusLink->Font);
+			std::string miniText = "";
+			miniText.append(currentMap->continentName);
+			miniText.append(" | ");
+			miniText.append(currentMap->regionName);
+			miniText.append(" | ");
+			miniText.append(currentMap->name);
+
+			centerText(miniText, 3.8f);
+			ImGui::PopFont();
+			
+			/*
+			* Once we figured out custom fonts, use the right font for our character race, or any other according to settings (?)
+			* 
 			// Charr specific Font
 			ImGui::PushFont(fonts["fontCharr"]);
 			if (ImGui::GetFont() == nullptr) {
@@ -126,11 +169,59 @@ void Renderer::render() {
 			ImGui::Text(("Current Map: " + currentMap->name).c_str());
 			ImGui::Text(("Current Sector: " + currentMap->currentSector.name).c_str());
 			ImGui::PopFont();
+			*/
 		}
-		else {
-			ImGui::Text("No current map detected. :(");
+		ImGui::End();
+	}
+}
+
+void centerText(std::string text, float yOffset) {
+	ImGuiIO& io = ImGui::GetIO();
+	ImVec2 windowSize = io.DisplaySize;
+
+	// Center Text voodoo
+	ImVec2 textSize = ImGui::CalcTextSize(text.c_str());
+	float textX = (windowSize.x - textSize.x) / 2.0f;
+	float textY = windowSize.y / yOffset;
+
+	ImGui::SetCursorScreenPos(ImVec2(textX + 2, textY + 2));
+	ImGui::TextColored(ImVec4(0, 0, 0, opacity), text.c_str()); // shadow
+	ImGui::SetCursorPos(ImVec2(textX, textY));
+	ImGui::TextColored(ImVec4(255,255,255, opacity), text.c_str()); // text
+}
+
+/// <summary>
+/// Original Author: Delta
+/// Additions to fade out after sleep: Pirate
+/// 
+/// Routine to fade in/fade out content hooked on the opacity flag.
+/// Music Tip: NOTHING MORE - FADE IN/FADE OUT:
+/// https://www.youtube.com/watch?v=wBC3Tl0dg4M
+/// </summary>
+void fade() {
+	// fade in
+	while (true)
+	{
+		opacity += 0.05f;
+		if (opacity > 1) { 
+			opacity = 1.0f; 
+			break;
 		}
 
+		Sleep(35);
 	}
-	ImGui::End();
+	Sleep(3000); // sleep first so the text stays a little
+	// fade out
+	while (true)
+	{
+		opacity -= 0.05f;
+
+		if (opacity < 0.0f) { 
+			opacity = 0.0f; 
+			break;
+		}
+
+		Sleep(35);
+	}
+	animating = false;
 }

@@ -79,8 +79,8 @@ extern "C" __declspec(dllexport) AddonDefinition* GetAddonDef()
 	AddonDef.Flags = EAddonFlags_None;
 
 	/* not necessary if hosted on Raidcore, but shown anyway for the example also useful as a backup resource */
-	//AddonDef.Provider = EUpdateProvider_GitHub;
-	//AddonDef.UpdateLink = "https://github.com/RaidcoreGG/GW2Nexus-AddonTemplate";
+	AddonDef.Provider = EUpdateProvider_GitHub;
+	AddonDef.UpdateLink = "https://github.com/HeavyMetalPirate/GW2Nexus-RegionsOfTyria";
 
 	return &AddonDef;
 }
@@ -153,11 +153,13 @@ void AddonUnload()
 /// PreRender Functionality
 /// </summary>
 void PreRender() {
-	renderer.preRender(ImGui::GetIO());
+	// TODO bring this in once we figured out custom fonts
+	//renderer.preRender(ImGui::GetIO());
 }
 
 void PostRender() {
-	renderer.postRender(ImGui::GetIO());
+	// TODO probably bring this in once we figured out custom fonts
+	//renderer.postRender(ImGui::GetIO());
 }
 
 ///----------------------------------------------------------------------------------------------------
@@ -167,27 +169,9 @@ void PostRender() {
 ///----------------------------------------------------------------------------------------------------
 void AddonRender()
 {
+	// TODO this render condition was just to test visibility toggles and how to implement an icon in the toolbar
+	// future implementations will probably calculate when to show what via detecting changes, reading settings etc.
 	if (!addonVisible) return;
-
-	if (ImGui::Begin("MyFirstImGuiWindow"))
-	{
-		ImGui::Text("Hello Tyria!");
-		ImGui::Text("UI Tick: %u",
-			nullptr != MumbleLink
-			? MumbleLink->UITick
-			: 0
-		);
-
-		ImGui::Text("%s",
-			nullptr != NexusLink
-			? NexusLink->IsMoving
-				? "Currently moving!"
-				: "Currently standing still."
-			: "We don't know whether we are standing or moving? NexusLink seems to be empty."
-		);
-	}
-	ImGui::End();
-
 	renderer.render();
 }
 
