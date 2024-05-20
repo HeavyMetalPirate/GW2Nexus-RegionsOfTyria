@@ -202,6 +202,7 @@
     <ClInclude Include="service\CurrentMapService.h" />
     <ClInclude Include="service\MapInventory.h" />
     <ClInclude Include="service\MapLoaderService.h" />
+    <ClInclude Include="Settings.h" />
     <ClInclude Include="ziplib\src\miniz.h" />
     <ClInclude Include="ziplib\src\zip.h" />
   </ItemGroup>

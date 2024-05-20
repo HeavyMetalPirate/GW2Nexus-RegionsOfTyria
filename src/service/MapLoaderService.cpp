@@ -1,9 +1,10 @@
+// This define is disabled delibarately right now, because using OpenSSL statically linked with yhirose/cpp-httlib breaks unloading
+// https://discord.com/channels/410828272679518241/917239829664788571/1240682494161059850
 // #define CPPHTTPLIB_OPENSSL_SUPPORT
 #include "MapLoaderService.h"
 #include <Windows.h>
 #include "../resource.h"
 
-//#include "../miniz/miniz.h"
 #include "../ziplib/src/zip.h"
 
 // HTTPLib Client
@@ -17,12 +18,11 @@ std::thread initializerThread;
 
 namespace fs = std::filesystem;
 
-
 static int on_extract_entry(const char* filename, void* arg) {
 	static int i = 0;
 	int n = *(int*)arg;
 
-	APIDefs->Log(ELogLevel::ELogLevel_DEBUG, ADDON_NAME, filename);
+	APIDefs->Log(ELogLevel::ELogLevel_DEBUG, ADDON_NAME, (filename));
 	return 0;
 }
 
@@ -38,6 +38,12 @@ MapLoaderService::~MapLoaderService() {
 	}
 }
 
+/// <summary>
+/// Utility function to request an URI with yhirose/cpp-httlib.
+/// TODO: maybe generalize the return type to decouple from HTTL lib implementation?
+/// </summary>
+/// <param name="uri">uri to be requested</param>
+/// <returns>Result of the call, or nullptr in case of a timeout on the client</returns>
 httplib::Result MapLoaderService::performRequest(std::string uri) {
 	httplib::Client cli(baseUrl);
 	auto res = cli.Get(uri);
@@ -58,7 +64,6 @@ void MapLoaderService::initializeMapStorage() {
 	if (!initializerThread.joinable()) {
 		// Move a newly constructed thread to the class member.
 		initializerThread = std::thread([this]() {
-			//this->unpackMaps();
 			this->loadAllMapsFromStorage();
 		});
 	}
@@ -67,24 +72,24 @@ void MapLoaderService::initializeMapStorage() {
 
 void MapLoaderService::unpackMaps() {
 
-	// TODO get from internal bundled resource somehow
+	// get resource from internal bundled resources
 	HRSRC hResource = FindResource(hSelf, MAKEINTRESOURCE(IDR_MAPS_ZIP), "ZIP");
 	if (hResource == NULL) {
 		APIDefs->Log(ELogLevel::ELogLevel_CRITICAL, ADDON_NAME, "Did not find resource.");
 		return;
 	}
 
-	// Hole den Handler für die Ressource
+	// Get Handle of resource
 	HGLOBAL hLoadedResource = LoadResource(hSelf, hResource);
 	if (hLoadedResource == NULL) {
 		APIDefs->Log(ELogLevel::ELogLevel_CRITICAL, ADDON_NAME, "Could not load resource.");
 		return;
 	}
 
-	// Sperre den Speicherbereich der Ressource und erhalte einen Zeiger darauf
+	// Lock resource
 	LPVOID lpResourceData = LockResource(hLoadedResource);
 	if (lpResourceData == NULL) {
-		APIDefs->Log(ELogLevel::ELogLevel_CRITICAL, ADDON_NAME, "Could not lo resource.");
+		APIDefs->Log(ELogLevel::ELogLevel_CRITICAL, ADDON_NAME, "Could not lock resource.");
 		return;
 	}
 
@@ -106,18 +111,18 @@ void MapLoaderService::unpackMaps() {
 	}
 	std::string outputPath = pathFolder + "/maps.zip";
 
-	// Öffne eine Datei zum Schreiben
-	FILE* file = fopen(outputPath.c_str(), "wb"); // "wb" für Binärschreiben
+	// Open file for writing in binary
+	FILE* file = fopen(outputPath.c_str(), "wb");
 	if (file == NULL) {
 		APIDefs->Log(ELogLevel::ELogLevel_CRITICAL, ADDON_NAME, "Error trying to write maps.zip (fopen)");
 		return;
 	}
 
-	// Schreibe die Ressourcendaten in die Datei
+	// Write resource
 	size_t resourceSize = SizeofResource(hSelf, hResource);
 	fwrite(lpResourceData, 1, resourceSize, file);
 
-	// Schließe die Datei
+	// Close data, free up resources
 	fclose(file);
 	APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, "maps.zip extracted from module.");
 	
@@ -126,7 +131,9 @@ void MapLoaderService::unpackMaps() {
 	APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, "Map JSON data extracted from maps.zip.");
 }
 
-
+/// <summary>
+/// Load all the Maps from addon storage and store them in the mapInventory.
+/// </summary>
 void MapLoaderService::loadAllMapsFromStorage() {
 	// Get addon directory
 	std::string pathFolder = APIDefs->GetAddonDirectory(ADDON_NAME);
@@ -175,165 +182,79 @@ void MapLoaderService::loadAllMapsFromStorage() {
 	}	
 }
 
-/*
-* Function to update the Map info via GW2 REST API call.
-* TODO: refactor to query the following:
-* - Map details of map (via v2/maps/{id})
-* - all zones of a map (via v2/continents/{continent_id}/floors/{floor_id}/regions/{region_id}/maps/{map_id}/sectors/{sector_id}
-*
-* how do we get all these?
-* - map_id is supplied by mumble identity
-* - continent_id and region_id are part of the map details query
-* - floor_id comes from an array of ids from the map details query -> iterate over
-* - sector_id we get by calling the second url without the param first; it is an array of ids again -> iterate over
-*
-* what do we do with the data?
-* - each sector contains the bounds as an array
-* - the plan is to store the sectors for the map in a structured way
-* - that way we can later ask "in which zone is the player right now?"
-* - if the answer to the above is "it is a different sector than before" we can change a flag indicating that a render for a new zone text is required
-*
-* tasks to figure out in the future:
-* - how to render the zone information for a couple of seconds only? idea: mumble frame counting; how does this compare over different runtimes?
-* - do I want to store the map details into JSON data for later usage so I don't need to request it all the time? If doing so I might wanna make the information time out at some point?
-
-
-void MapLoaderService::loadMap(int mapId) {	
-	APIDefs->Log(ELogLevel_INFO, ADDON_NAME, ("Loading Map with id: " + std::to_string(mapId)).c_str());
-
-	// Check if the map inventory already knows this map and skip if that's the case
-	APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, "Checking MapInventory for existence of map...");
-	if (mapInventory->getMapInfo(mapId) != nullptr) {
-		std::stringstream stream;
-		stream << "Requested mapLoad with mapId " << std::to_string(mapId) << " but map is already stored. Skipping mapLoad.";
-		APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, stream.str().c_str());
-		return;
-	}
-	APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, "Map not found in inventory, starting to load.");
-
-	timeoutCounter = 0;
-	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-
-	bool loaded = loadFromStorage(mapId);
-	if (!loaded) {
-		APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, "Map not found in cache, fetching map from resources.");
-		loaded = loadFromResources(mapId);
-		if (!loaded) {
-			APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, "Map not found in storage, fetching map from GW2 API.");
-			loaded = loadFromApi(mapId);
-		}
-	}
-
-	if (!loaded) {
-		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Couldn't load map.");
-		return;
-	}
-	
-	std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-	std::stringstream stream;
-	stream << "Load duration = " << std::chrono::duration_cast<std::chrono::seconds>(end - begin).count() << "[s]";
-	APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, stream.str().c_str());
-}
-
-
-bool MapLoaderService::loadFromResources(int mapId) {
-	std::string lang = "en"; // TODO
-
-	return false;
-}
-
-bool MapLoaderService::loadFromStorage(int mapId) {
-	std::string lang = "en"; // TODO
-	// TODO impl
-	// Get addon directory
-	std::string pathFolder = APIDefs->GetAddonDirectory("RegionsDisplay");
-	// Create folder if not exist
-	if (!fs::exists(pathFolder)) {
-		try {
-			fs::create_directory(pathFolder);
-		}
-		catch (const std::exception& e) {
-			std::string message = "Could not create addon directory: ";
-			message.append(pathFolder);
-			APIDefs->Log(ELogLevel::ELogLevel_CRITICAL, ADDON_NAME, message.c_str());
-
-			// Suppress the warning for the unused variable 'e'
-			#pragma warning(suppress: 4101)
-			e;
-		}
-	}
-
-	return false;
-}*/
-
+/// <summary>
+/// Loads all maps from GW2 API and stores them in the mapInventory.
+/// </summary>
 void MapLoaderService::loadAllMapsFromApi() {
-	std::map<std::string, gw2::map*> mapInfos = std::map<std::string, gw2::map*>();
+	for (auto lang : SUPPORTED_LOCAL) {
+		std::map<std::string, gw2::map*> mapInfos = std::map<std::string, gw2::map*>();
 
-	const std::string lang = "en"; // TODO
-	auto continentsResponse = performRequest("/v2/continents?lang=" + lang);
-	if (continentsResponse == nullptr) {
-		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Could not request map data within retry limits!");
-		return;
-	}
-	json continentsJson = json::parse(continentsResponse->body);
-
-	for (auto continent : continentsJson.get<std::vector<int>>()) {
-		APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, ("Requesting data from continent " + std::to_string(continent)).c_str());
-		auto continentResponse = performRequest("/v2/continents/" + std::to_string(continent) + "?lang=" + lang);
-		if (continentResponse == nullptr) {
+		auto continentsResponse = performRequest("/v2/continents?lang=" + lang);
+		if (continentsResponse == nullptr) {
 			APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Could not request map data within retry limits!");
 			return;
 		}
+		json continentsJson = json::parse(continentsResponse->body);
 
-		json continentJson = json::parse(continentResponse->body);
-
-		for (auto floor : continentJson["floors"].get<std::vector<int>>()) {
-			APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, ("Requesting data from floor " + std::to_string(floor)).c_str());
-			auto floorResponse = performRequest("/v2/continents/" + std::to_string(continent) + "/floors/" + std::to_string(floor) + "?lang=" + lang);
-			if (floorResponse == nullptr) {
+		for (auto continent : continentsJson.get<std::vector<int>>()) {
+			APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, ("Requesting data from continent " + std::to_string(continent)).c_str());
+			auto continentResponse = performRequest("/v2/continents/" + std::to_string(continent) + "?lang=" + lang);
+			if (continentResponse == nullptr) {
 				APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Could not request map data within retry limits!");
 				return;
 			}
 
-			json floorJson = json::parse(floorResponse->body);
+			json continentJson = json::parse(continentResponse->body);
 
-			gw2api::continents::floor floor = floorJson.get< gw2api::continents::floor>();
-			if (floor.regions.size() == 0) {
-				APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, "Empty floor detected");
-				continue;
-			}
+			for (auto floor : continentJson["floors"].get<std::vector<int>>()) {
+				APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, ("Requesting data from floor " + std::to_string(floor)).c_str());
+				auto floorResponse = performRequest("/v2/continents/" + std::to_string(continent) + "/floors/" + std::to_string(floor) + "?lang=" + lang);
+				if (floorResponse == nullptr) {
+					APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Could not request map data within retry limits!");
+					return;
+				}
 
-			// for every region, for every map create a MapInfo*
-			for (auto region : floor.regions)
-			{
-				for (auto entry : region.second.maps) {
-					std::string id = entry.first;
-					gw2api::continents::map* map = &entry.second;
+				json floorJson = json::parse(floorResponse->body);
 
-					gw2::map* mapInfo;
-					if (mapInfos.count(id)) {
-						mapInfo = mapInfos[id];
+				gw2api::continents::floor floor = floorJson.get< gw2api::continents::floor>();
+				if (floor.regions.size() == 0) {
+					APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, "Empty floor detected");
+					continue;
+				}
+
+				// for every region, for every map create a MapInfo*
+				for (auto region : floor.regions)
+				{
+					for (auto entry : region.second.maps) {
+						std::string id = entry.first;
+						gw2api::continents::map* map = &entry.second;
+
+						gw2::map* mapInfo;
+						if (mapInfos.count(id)) {
+							mapInfo = mapInfos[id];
+						}
+						else {
+							mapInfo = new gw2::map(*map);
+
+							APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, ("New Map: " + map->name).c_str());
+							mapInfos.emplace(id, mapInfo);
+						}
+						for (auto sector : map->sectors)
+						{
+							mapInfo->sectors.emplace(sector.first, sector.second);
+						}
 					}
-					else {
-						mapInfo = new gw2::map(*map);
-
-						APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, ("New Map: " + map->name).c_str());
-						mapInfos.emplace(id, mapInfo);
-					}
-					for (auto sector : map->sectors)
-					{
-						mapInfo->sectors.emplace(sector.first, sector.second);
-					}			
 				}
 			}
 		}
-	}
 
-	// TODO we could possibly store the data in our temp storage here too... just a thought.
+		// TODO we could possibly store the data in our temp storage here too... just a thought.
+		// if we do the above, we absolutely wanna save a timestamp with that info however, so we can decide when it's time to update the cache
 
-	// add all maps found to the inventory
-	for (auto map : mapInfos) {
-		mapInventory->addMap(lang, map.second);
+		// add all maps found to the inventory
+		for (auto map : mapInfos) {
+			mapInventory->addMap(lang, map.second);
+		}
 	}
 }
 

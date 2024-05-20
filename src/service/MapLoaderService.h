@@ -14,11 +14,7 @@ class MapLoaderService {
 public:
 	MapLoaderService();
 	~MapLoaderService();
-	/// <summary>
-	/// Function to load map and sector data for the mapId provided
-	/// </summary>
-	/// <param name="mapId">the mapId as per GW2 API specifications</param>
-	void loadMap(int mapId);
+
 	/// <summary>
 	/// Startup function to initialize the Map Inventory
 	/// </summary>

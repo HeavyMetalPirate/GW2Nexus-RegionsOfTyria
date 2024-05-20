@@ -8,8 +8,15 @@ MapData* CurrentMapService::getCurrentMap() {
 	auto position = MumbleLink->AvatarPosition;
 	MumbleLink->Context;
 	
-	std::string locale = "en"; // 
-	gw2::map* map = mapInventory->getMapInfo(locale, currentMapId);
+	std::string localestr;
+	if (locale == Locale::Client) {
+		localestr = "en"; // TODO read from client somehow
+	}
+	else {
+		localestr = GetLocaleAsString(locale);
+	}
+	
+	gw2::map* map = mapInventory->getMapInfo(localestr, currentMapId);
 	if (map == nullptr) return nullptr;
 
 	SectorData currentSector = SectorData();

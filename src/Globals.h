@@ -26,6 +26,7 @@
 #include "imgui/imgui.h"
 
 #include "Constants.h"
+#include "Settings.h"
 #include "service/MapInventory.h"
 
 extern HMODULE hSelf;

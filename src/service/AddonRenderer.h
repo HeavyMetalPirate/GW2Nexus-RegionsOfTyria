@@ -16,14 +16,14 @@ public:
 	void render();
 	void postRender(ImGuiIO& io);
 private:
+
+	/* Fonts shenanigans, currently not working as expected so subject to change */
 	bool fontsLoaded = false;
-	int currentSectorId = -1;
 
 	ImFontAtlas* newFontAtlas = new ImFontAtlas();
 	ImFontAtlas* defaultFontAtlas = nullptr;
 
 	ImFont* loadFont(ImGuiIO& io, std::string path, float size);
-	CurrentMapService currentMapService;
 	std::map<std::string, ImFont*> fonts;
 };
 

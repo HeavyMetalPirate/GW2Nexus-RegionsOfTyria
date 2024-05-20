@@ -20,6 +20,7 @@ void AddonLoad(AddonAPI* aApi);
 void AddonUnload();
 void AddonRender();
 void AddonOptions();
+void AddonShortcut();
 void PreRender();
 void PostRender();
 
@@ -34,8 +35,9 @@ NexusLinkData* NexusLink	= nullptr;
 Mumble::Data* MumbleLink	= nullptr;
 MapInventory* mapInventory  = nullptr; 
 
-bool someSetting			= false;
-bool addonVisible			= false;
+/* settings */
+bool showDebug = false;
+Locale locale = Locale::Client;
 
 /* services */
 Renderer renderer;
@@ -67,13 +69,13 @@ extern "C" __declspec(dllexport) AddonDefinition* GetAddonDef()
 {
 	AddonDef.Signature = -126452345; // set to random unused negative integer
 	AddonDef.APIVersion = NEXUS_API_VERSION;
-	AddonDef.Name = "LearningProject - RegionsOfTyria Port";
+	AddonDef.Name = "Regions Of Tyria";
 	AddonDef.Version.Major = 1;
 	AddonDef.Version.Minor = 0;
 	AddonDef.Version.Build = 0;
 	AddonDef.Version.Revision = 1;
 	AddonDef.Author = "HeavyMetalPirate.2695";
-	AddonDef.Description = "This is a learning project mostly for now.";
+	AddonDef.Description = "Displays the current sector whenever you cross borders, much like your favorite (MMO)RPG does. Spiritual port of the BlishHUD module.";
 	AddonDef.Load = AddonLoad;
 	AddonDef.Unload = AddonUnload;
 	AddonDef.Flags = EAddonFlags_None;
@@ -100,8 +102,10 @@ void AddonLoad(AddonAPI* aApi)
 	NexusLink = (NexusLinkData*)APIDefs->GetResource("DL_NEXUS_LINK");
 	MumbleLink = (Mumble::Data*)APIDefs->GetResource("DL_MUMBLE_LINK");
 
-	APIDefs->AddShortcut("QA_MYFIRSTADDON", "ICON_PIKACHU", "ICON_JAKE", KB_MFA, "ASDF!");
-	APIDefs->RegisterKeybindWithString(KB_MFA, ProcessKeybind, "CTRL+ALT+SHIFT+L");
+	// TODO clean this code up at some point, keep it for now so you remember how to do this
+	//APIDefs->AddShortcut("QA_MYFIRSTADDON", "ICON_PIKACHU", "ICON_JAKE", KB_MFA, "ASDF!");
+	//APIDefs->RegisterKeybindWithString(KB_MFA, ProcessKeybind, "CTRL+ALT+SHIFT+L");
+	APIDefs->AddSimpleShortcut(ADDON_NAME_LONG, AddonShortcut);
 
 	// Unpack the addon resources to the addon data
 	unpackResources();
@@ -169,9 +173,6 @@ void PostRender() {
 ///----------------------------------------------------------------------------------------------------
 void AddonRender()
 {
-	// TODO this render condition was just to test visibility toggles and how to implement an icon in the toolbar
-	// future implementations will probably calculate when to show what via detecting changes, reading settings etc.
-	if (!addonVisible) return;
 	renderer.render();
 }
 
@@ -181,17 +182,38 @@ void AddonRender()
 ///----------------------------------------------------------------------------------------------------
 void AddonOptions()
 {
+	/*
 	ImGui::Separator();
 	ImGui::Text("My first Nexus addon");
 	ImGui::Checkbox("Some setting", &someSetting);
+	*/
+}
+
+void AddonShortcut() {
+
+	if (ImGui::BeginMenu("Locale")) {
+		for (auto item : localeItems) {
+			bool selected = locale == item.value;
+			if (ImGui::MenuItem(item.description.c_str(), nullptr, &selected))
+			{
+				if (selected)
+				{
+					locale = item.value;
+				}
+			}
+		}
+	}
+	if (ImGui::Checkbox("DebugFrame", &showDebug)) {
+
+	}
 }
 
 void ProcessKeybind(const char* aIdentifier)
 {
-	/* if KB_MFA is passed, we toggle the compass visibility */
+	// TODO clean this up at some point, keep it for now to remember how this works if we need it
 	if (strcmp(aIdentifier, KB_MFA) == 0)
 	{
-		addonVisible = !addonVisible;
+
 		return;
 	}
 }
