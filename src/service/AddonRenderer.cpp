@@ -1,5 +1,5 @@
 #include "AddonRenderer.h"
-//#include <imgui_impl_dx11.h>
+#include <fstream>
 
 using json = nlohmann::json;
 
@@ -27,30 +27,26 @@ Renderer::~Renderer() {
 }
 
 void Renderer::preRender(ImGuiIO& io) {
+	// Reference as to why this should work as implemented:
+	// https://github.com/ocornut/imgui/issues/2311#issuecomment-460039964
+	// However it breaks everything Nexus has set up on its device.
+	// Which is, suboptimal, to say the least.
 	if (!fontsLoaded) {
-		// Load fonts into a custom atlas
+		
 		fonts = std::map<std::string, ImFont*>();
 
-		//ImFontAtlas nexusAtlas = *io.Fonts;
-		// initialize with nexusAtlas as base, hopefully
-		newFontAtlas = new ImFontAtlas(); // nexusAtlas);
-
 		std::string pathFolder = APIDefs->GetAddonDirectory(ADDON_NAME);
-		fonts.emplace("fontCharr", loadFont(io, pathFolder + "/font_charr.ttf", 48.0f));
-		fonts.emplace("fontHuman", loadFont(io, pathFolder + "/font_human.ttf", 48.0f));
-		fonts.emplace("fontSylvari", loadFont(io, pathFolder + "/font_sylvari.ttf", 48.0f));
-		fonts.emplace("fontNorn", loadFont(io, pathFolder + "/font_norn.ttf", 48.0f));
-		fonts.emplace("fontAsura", loadFont(io, pathFolder + "/font_asura.ttf", 48.0f));
+		fonts.emplace("fontCharr", loadFont(io, pathFolder + "/font_charr.ttf", 20.0f));
+		fonts.emplace("fontHuman", loadFont(io, pathFolder + "/font_human.ttf", 20.0f));
+		fonts.emplace("fontSylvari", loadFont(io, pathFolder + "/font_sylvari.ttf", 20.0f));
+		fonts.emplace("fontNorn", loadFont(io, pathFolder + "/font_norn.ttf", 20.0f));
+		fonts.emplace("fontAsura", loadFont(io, pathFolder + "/font_asura.ttf", 40.0f));
+		
+		io.Fonts->Build();
+		ImGui_ImplDX11_InvalidateDeviceObjects();
 
-		newFontAtlas->Build();
 		fontsLoaded = true;
 	}
-
-	defaultFontAtlas = io.Fonts;
-	io.Fonts = newFontAtlas;
-
-	ImGui_ImplDX11_InvalidateDeviceObjects();
-	ImGui_ImplDX11_CreateDeviceObjects();
 }
 
 void Renderer::postRender(ImGuiIO& io) {
@@ -63,13 +59,31 @@ void Renderer::postRender(ImGuiIO& io) {
 }
 
 ImFont* Renderer::loadFont(ImGuiIO& io, std::string path, float size) {
-	//ImFont* newFont = io.Fonts->AddFontFromFileTTF(path.c_str(), size);
-	ImFont* newFont = newFontAtlas->AddFontFromFileTTF(path.c_str(), size);
+	ImFont* newFont = io.Fonts->AddFontFromFileTTF(path.c_str(), size);
+	//ImFont* newFont = newFontAtlas->AddFontFromFileTTF(path.c_str(), size);
+
 	if (newFont == nullptr) {
-		// TODO log error
+		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, ("Could not load font: " + path).c_str());
 		return nullptr;
 	}
 	return newFont;
+}
+
+std::vector<unsigned char> Renderer::readFontFile(const char* filename) {
+	std::ifstream file(filename, std::ios::binary | std::ios::ate);
+	std::streamsize size = file.tellg();
+	file.seekg(0, std::ios::beg);
+
+	std::vector<unsigned char> buffer(size);
+	if (file.read((char*)buffer.data(), size))
+	{
+		return buffer;
+	}
+	else
+	{
+		// Handle error
+		return std::vector<unsigned char>();
+	}
 }
 
 void Renderer::render() {
@@ -311,11 +325,24 @@ void renderDebugInfo() {
 		if (ImGui::CollapsingHeader(title.c_str())) {
 			
 			for (auto font : io.Fonts->Fonts) {
-				ImGui::PushFont(font);
-				std::string fontName = "Font name: " + std::string(font->ConfigData->Name) + ", Size : " + std::to_string(font->FontSize);
-				ImGui::Text(fontName.c_str());
-				ImGui::Text("ABCDEFGHIJKLMNOPQRSTUVWXYZ_abdefghijklmnopqrstuvwxyz");
-				ImGui::PopFont();
+				
+				if (font->IsLoaded()) {
+
+					ImGui::PushFont(font);
+					std::string fontName = "Font name: " + std::string(font->ConfigData->Name) + ", Size : " + std::to_string(font->FontSize);
+					ImGui::Text(fontName.c_str());
+					ImGui::Text("ABCDEFGHIJKLMNOPQRSTUVWXYZ_abdefghijklmnopqrstuvwxyz");
+					ImGui::PopFont();
+				}
+				else {
+
+					ImGui::PushFont((ImFont*)NexusLink->Font);
+					const char* debugname = font->GetDebugName();
+					std::string message = "Error: Font not loaded: " + std::string(debugname);
+					ImGui::Text(message.c_str());
+					ImGui::PopFont();
+				}
+				ImGui::Separator();
 			}
 		}
 	}

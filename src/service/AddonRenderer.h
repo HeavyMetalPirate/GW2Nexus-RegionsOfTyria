@@ -24,6 +24,7 @@ private:
 	ImFontAtlas* defaultFontAtlas = nullptr;
 
 	ImFont* loadFont(ImGuiIO& io, std::string path, float size);
+	std::vector<unsigned char> readFontFile(const char* filename);
 	std::map<std::string, ImFont*> fonts;
 };
 

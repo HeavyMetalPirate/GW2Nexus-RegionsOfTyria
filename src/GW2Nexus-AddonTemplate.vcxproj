@@ -225,6 +225,13 @@
     <ResourceCompile Include="GW2Nexus-RegionsDisplay.rc" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\.gitattributes" />
+    <None Include="..\.gitignore" />
+    <None Include="..\.gitmodules" />
+    <None Include="..\LICENSE" />
+    <None Include="..\README.md" />
+    <None Include="..\vcpkg-configuration.json" />
+    <None Include="..\vcpkg.json" />
     <None Include="maps\maps.zip" />
     <None Include="miniz\test.sh" />
     <None Include="resources\font1.bin" />

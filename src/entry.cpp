@@ -27,6 +27,10 @@ void PostRender();
 void ProcessKeybind(const char* aIdentifer);
 void HandleIdentityChanged(void* anEventArgs);
 
+void LoadSettings();
+void StoreSettings();
+std::string getAddonFolder();
+
 /* globals */
 HMODULE hSelf				= nullptr;
 AddonDefinition AddonDef	= {};
@@ -37,7 +41,7 @@ MapInventory* mapInventory  = nullptr;
 
 /* settings */
 bool showDebug = false;
-Locale locale = Locale::Client;
+Locale locale = Locale::En;
 
 /* services */
 Renderer renderer;
@@ -109,6 +113,7 @@ void AddonLoad(AddonAPI* aApi)
 
 	// Unpack the addon resources to the addon data
 	unpackResources();
+	LoadSettings();
 
 	// Register Events
 	APIDefs->SubscribeEvent("EV_MUMBLE_IDENTITY_UPDATED", HandleIdentityChanged);
@@ -199,6 +204,7 @@ void AddonShortcut() {
 				if (selected)
 				{
 					locale = item.value;
+					StoreSettings();
 				}
 			}
 		}
@@ -223,3 +229,58 @@ void HandleIdentityChanged(void* anEventArgs) {
 	Mumble::Identity* identity = (Mumble::Identity*)anEventArgs;
 }
 
+void LoadSettings() {
+	// Get addon directory
+	std::string pathData = getAddonFolder() + "/settings.json";
+	if (fs::exists(pathData)) {
+		std::ifstream dataFile(pathData);
+
+		if (dataFile.is_open()) {
+			json jsonData;
+			dataFile >> jsonData;
+			Settings settings = jsonData;
+
+			locale = settings.locale;
+		}
+	}
+	else {
+		// Create new settings!
+		StoreSettings();
+	}
+}
+
+void StoreSettings() {
+	Settings settings = Settings();
+	settings.locale = locale;
+	json j = settings;
+
+	std::string pathData = getAddonFolder() + "/settings.json";
+	std::ofstream outputFile(pathData);
+	if (outputFile.is_open()) {
+		outputFile << j.dump(4) << std::endl;
+		outputFile.close();
+	}
+	else {
+		APIDefs->Log(ELogLevel_WARNING, ADDON_NAME, "Could not store default settings.json - configuration might get lost between loads.");
+	}
+}
+
+std::string getAddonFolder() {
+	std::string pathFolder = APIDefs->GetAddonDirectory(ADDON_NAME);
+	// Create folder if not exist
+	if (!fs::exists(pathFolder)) {
+		try {
+			fs::create_directory(pathFolder);
+		}
+		catch (const std::exception& e) {
+			std::string message = "Could not create addon directory: ";
+			message.append(pathFolder);
+			APIDefs->Log(ELogLevel::ELogLevel_CRITICAL, ADDON_NAME, message.c_str());
+
+			// Suppress the warning for the unused variable 'e'
+			#pragma warning(suppress: 4101)
+			e;
+		}
+	}
+	return pathFolder;
+}

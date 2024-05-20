@@ -10,6 +10,8 @@
 #include <dinput.h>
 #include <tchar.h>
 
+
+
 // Data
 static ID3D11Device*            g_pd3dDevice = NULL;
 static ID3D11DeviceContext*     g_pd3dDeviceContext = NULL;
@@ -80,6 +82,8 @@ int main(int, char**)
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     // Main loop
+    bool load_font_file = false;
+
     MSG msg;
     ZeroMemory(&msg, sizeof(msg));
     while (msg.message != WM_QUIT)
@@ -94,6 +98,13 @@ int main(int, char**)
             ::TranslateMessage(&msg);
             ::DispatchMessage(&msg);
             continue;
+        }
+
+        if (load_font_file) {  // set to true if some button has been hit
+            const auto* font = io.Fonts->AddFontFromFileTTF("E:/Steam/steamapps/common/Guild Wars 2/addons/TyrianRegions/font_asura.ttf", 12.0f);
+            io.Fonts->Build();
+            ImGui_ImplDX11_InvalidateDeviceObjects();
+            load_font_file = false;
         }
 
         // Start the Dear ImGui frame

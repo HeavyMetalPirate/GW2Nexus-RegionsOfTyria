@@ -9,6 +9,9 @@ MapData* CurrentMapService::getCurrentMap() {
 	if (MumbleLink->Context.IsCompetitive) {
 		return nullptr;
 	}
+	if (!NexusLink->IsGameplay) {
+		return nullptr; // do not update while not in gameplay
+	}
 	
 	int currentMapId = MumbleLink->Context.MapID;
 	auto position = MumbleLink->AvatarPosition;
