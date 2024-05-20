@@ -12,7 +12,7 @@ enum class Locale {
 inline const std::string GetLocaleAsString(Locale value) {
     switch (value)
     {
-    case Locale::Client: return "client";
+    case Locale::Client: return "en"; // TODO read locale from client configuration instead
     case Locale::En: return "en";
     case Locale::De: return "de";
     case Locale::Es: return "es";

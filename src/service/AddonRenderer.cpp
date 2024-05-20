@@ -247,6 +247,7 @@ void renderSectorInfo() {
 
 void renderDebugInfo() {
 	if (!showDebug) return;
+	ImGuiIO& io = ImGui::GetIO();
 
 	if(ImGui::Begin("TyrianRegionsDebug"))
 	{
@@ -259,6 +260,7 @@ void renderDebugInfo() {
 		ImGui::Separator();
 		ImGui::Text("Mumble Information");
 		ImGui::Text(("Map Id: " + std::to_string(MumbleLink->Context.MapID)).c_str());
+		ImGui::Text(("Competitive: " + std::to_string(MumbleLink->Context.IsCompetitive)).c_str());
 
 		ImGui::Separator();
 		ImGui::Text("Current Map Data");
@@ -302,10 +304,20 @@ void renderDebugInfo() {
 				}
 			}
 		}
-
-		ImGui::Separator();
-
 		ImGui::PopFont();
+	
+		ImGui::Separator();
+		std::string title = "Loaded fonts: " + std::to_string(io.Fonts->Fonts.size());
+		if (ImGui::CollapsingHeader(title.c_str())) {
+			
+			for (auto font : io.Fonts->Fonts) {
+				ImGui::PushFont(font);
+				std::string fontName = "Font name: " + std::string(font->ConfigData->Name) + ", Size : " + std::to_string(font->FontSize);
+				ImGui::Text(fontName.c_str());
+				ImGui::Text("ABCDEFGHIJKLMNOPQRSTUVWXYZ_abdefghijklmnopqrstuvwxyz");
+				ImGui::PopFont();
+			}
+		}
 	}
 	ImGui::End();
 }

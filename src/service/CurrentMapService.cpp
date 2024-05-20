@@ -4,17 +4,16 @@ CurrentMapService::CurrentMapService() {}
 CurrentMapService::~CurrentMapService() {}
 
 MapData* CurrentMapService::getCurrentMap() {
+
+	// currently broken in competitive modes due to mumble not delivering global coordinates. disable until I can properly calculate it
+	if (MumbleLink->Context.IsCompetitive) {
+		return nullptr;
+	}
+	
 	int currentMapId = MumbleLink->Context.MapID;
 	auto position = MumbleLink->AvatarPosition;
-	MumbleLink->Context;
-	
-	std::string localestr;
-	if (locale == Locale::Client) {
-		localestr = "en"; // TODO read from client somehow
-	}
-	else {
-		localestr = GetLocaleAsString(locale);
-	}
+
+	std::string localestr = GetLocaleAsString(locale);
 	
 	gw2::map* map = mapInventory->getMapInfo(localestr, currentMapId);
 	if (map == nullptr) return nullptr;

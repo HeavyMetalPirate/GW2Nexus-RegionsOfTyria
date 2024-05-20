@@ -202,6 +202,7 @@ void AddonShortcut() {
 				}
 			}
 		}
+		ImGui::EndMenu();
 	}
 	if (ImGui::Checkbox("DebugFrame", &showDebug)) {
 
