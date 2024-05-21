@@ -79,9 +79,9 @@ extern "C" __declspec(dllexport) AddonDefinition* GetAddonDef()
 	AddonDef.APIVersion = NEXUS_API_VERSION;
 	AddonDef.Name = "Regions Of Tyria";
 	AddonDef.Version.Major = 1;
-	AddonDef.Version.Minor = 0;
+	AddonDef.Version.Minor = 1;
 	AddonDef.Version.Build = 0;
-	AddonDef.Version.Revision = 1;
+	AddonDef.Version.Revision = 0;
 	AddonDef.Author = "HeavyMetalPirate.2695";
 	AddonDef.Description = "Displays the current sector whenever you cross borders, much like your favorite (MMO)RPG does. Spiritual port of the BlishHUD module.";
 	AddonDef.Load = AddonLoad;
