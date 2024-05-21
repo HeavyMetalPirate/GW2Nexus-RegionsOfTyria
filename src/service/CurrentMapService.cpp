@@ -35,7 +35,7 @@ MapData* CurrentMapService::getCurrentMap() {
 		float y = MumbleLink->Context.Compass.PlayerPosition.Y;
 		for (auto sector : map->sectors) {
 			bool inside = false;
-			int count = sector.second.bounds.size();
+			size_t count = sector.second.bounds.size();
 
 			//Ray - Casting - Algorithm, sponsored by ChatGPT
 			for (int i = 0, j = count - 1; i < count; j = i++) {
@@ -51,14 +51,19 @@ MapData* CurrentMapService::getCurrentMap() {
 			}
 		}
 	}
+	if(currentMap != nullptr)
+		if (map->id == currentMap->id 
+			&& currentSector.id == currentMap->currentSector.id) 
+			return currentMap; // no change, return same pointer
 
-	MapData* mapData = new MapData();
-	mapData->id = map->id;
-	mapData->name = map->name;
-	mapData->regionId = map->regionId;
-	mapData->regionName = map->regionName;
-	mapData->continentId = map->continentId;
-	mapData->continentName = map->continentName;
-	mapData->currentSector = currentSector;
-	return mapData;
+	currentMap = new MapData();
+	currentMap->id = map->id;
+	currentMap->name = map->name;
+	currentMap->regionId = map->regionId;
+	currentMap->regionName = map->regionName;
+	currentMap->continentId = map->continentId;
+	currentMap->continentName = map->continentName;
+	currentMap->currentSector = currentSector;
+
+	return currentMap;
 }

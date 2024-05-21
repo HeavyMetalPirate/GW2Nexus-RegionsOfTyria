@@ -9,7 +9,6 @@ namespace gw2 = gw2api::continents;
 class MapInventory {
 public:
 	MapInventory();
-	~MapInventory();
 
 	void addMap(std::string locale, gw2::map* mapInfo);
 	gw2::map* getMapInfo(std::string locale, int id);

@@ -26,11 +26,10 @@ static int on_extract_entry(const char* filename, void* arg) {
 	return 0;
 }
 
-MapLoaderService::MapLoaderService() {
-	this->unloading = false;
-}
-MapLoaderService::~MapLoaderService() {
-	this->unloading = true;
+MapLoaderService::MapLoaderService() {}
+MapLoaderService::~MapLoaderService() {}
+
+void MapLoaderService::unload() {
 	// Ensure the thread has been started.
 	if (initializerThread.joinable()) {
 		// This will block until the thread has finished.
@@ -44,7 +43,7 @@ MapLoaderService::~MapLoaderService() {
 /// </summary>
 /// <param name="uri">uri to be requested</param>
 /// <returns>Result of the call, or nullptr in case of a timeout on the client</returns>
-httplib::Result MapLoaderService::performRequest(std::string uri) {
+/*httplib::Result MapLoaderService::performRequest(std::string uri) {
 	httplib::Client cli(baseUrl);
 	auto res = cli.Get(uri);
 
@@ -58,13 +57,13 @@ httplib::Result MapLoaderService::performRequest(std::string uri) {
 		res = cli.Get(uri);
 	}
 	return res;
-}
+}*/
 
 void MapLoaderService::initializeMapStorage() {
 	if (!initializerThread.joinable()) {
 		// Move a newly constructed thread to the class member.
-		initializerThread = std::thread([this]() {
-			this->loadAllMapsFromStorage();
+		initializerThread = std::thread([&] {
+			loadAllMapsFromStorage();
 		});
 	}
 
@@ -73,7 +72,7 @@ void MapLoaderService::initializeMapStorage() {
 void MapLoaderService::unpackMaps() {
 
 	// get resource from internal bundled resources
-	HRSRC hResource = FindResource(hSelf, MAKEINTRESOURCE(IDR_MAPS_ZIP), "ZIP");
+	HRSRC hResource = FindResource(hSelf, MAKEINTRESOURCE(IDR_MAPS_ZIP), L"ZIP");
 	if (hResource == NULL) {
 		APIDefs->Log(ELogLevel::ELogLevel_CRITICAL, ADDON_NAME, "Did not find resource.");
 		return;
@@ -112,9 +111,10 @@ void MapLoaderService::unpackMaps() {
 	std::string outputPath = pathFolder + "/maps.zip";
 
 	// Open file for writing in binary
-	FILE* file = fopen(outputPath.c_str(), "wb");
-	if (file == NULL) {
-		APIDefs->Log(ELogLevel::ELogLevel_CRITICAL, ADDON_NAME, "Error trying to write maps.zip (fopen)");
+	FILE* file = nullptr;
+	errno_t err = fopen_s(&file, outputPath.c_str(), "wb");
+	if (err != 0 || file == nullptr) {
+		APIDefs->Log(ELogLevel::ELogLevel_CRITICAL, ADDON_NAME, "Error trying to write maps.zip (fopen_s)");
 		return;
 	}
 
@@ -135,58 +135,73 @@ void MapLoaderService::unpackMaps() {
 /// Load all the Maps from addon storage and store them in the mapInventory.
 /// </summary>
 void MapLoaderService::loadAllMapsFromStorage() {
-	// Get addon directory
-	std::string pathFolder = APIDefs->GetAddonDirectory(ADDON_NAME);
-	// Create folder if not exist
-	if (!fs::exists(pathFolder)) {
-		try {
-			fs::create_directory(pathFolder);
-		}
-		catch (const std::exception& e) {
-			std::string message = "Could not create addon directory: ";
-			message.append(pathFolder);
-			APIDefs->Log(ELogLevel::ELogLevel_CRITICAL, ADDON_NAME, message.c_str());
+	try {
+		// Get addon directory
+		std::string pathFolder = APIDefs->GetAddonDirectory(ADDON_NAME);
+		// Create folder if not exist
+		if (!fs::exists(pathFolder)) {
+			try {
+				fs::create_directory(pathFolder);
+			}
+			catch (const std::exception& e) {
+				std::string message = "Could not create addon directory: ";
+				message.append(pathFolder);
+				APIDefs->Log(ELogLevel::ELogLevel_CRITICAL, ADDON_NAME, message.c_str());
 
-			// Suppress the warning for the unused variable 'e'
-			#pragma warning(suppress: 4101)
-			e;
+				// Suppress the warning for the unused variable 'e'
+#pragma warning(suppress: 4101)
+				e;
+			}
+		}
+
+		for (auto lang : SUPPORTED_LOCAL) {
+			if (unloading) return;
+			// Load events from data.json
+			std::string pathData = pathFolder + "/" + lang + ".json";
+			if (fs::exists(pathData)) {
+				std::ifstream dataFile(pathData);
+
+				if (dataFile.is_open()) {
+					json jsonData;
+					dataFile >> jsonData;
+					dataFile.close();
+
+					gw2::region region = jsonData;
+
+					for (auto map : region.maps)
+					{
+						if (unloading) return;
+						gw2::map* m = new gw2::map(map.second);
+						mapInventory->addMap(lang, m);
+					}
+				}
+
+			}
+			else {
+				APIDefs->Log(ELogLevel::ELogLevel_CRITICAL, ADDON_NAME, ("Maps file for language not found: " + lang + ".json").c_str());
+				continue;
+			}
+			std::stringstream stream;
+			stream << "Maps for locale '" << lang << "' in inventory: " << std::to_string(mapInventory->getLoadedMaps(lang).size());
+			APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, stream.str().c_str());
 		}
 	}
 
-	for (auto lang : SUPPORTED_LOCAL) {
-		// Load events from data.json
-		std::string pathData = pathFolder + "/" + lang + ".json";
-		if (fs::exists(pathData)) {
-			std::ifstream dataFile(pathData);
-
-			if (dataFile.is_open()) {
-				json jsonData;
-				dataFile >> jsonData;
-
-				gw2::region region = jsonData;
-
-				for (auto map : region.maps)
-				{
-					gw2::map* m = new gw2::map(map.second);
-					mapInventory->addMap(lang, m);
-				}
-			}
-		}
-		else {
-			APIDefs->Log(ELogLevel::ELogLevel_CRITICAL, ADDON_NAME, ("Maps file for language not found: " + lang + ".json").c_str());
-			continue;
-		}
-		std::stringstream stream;
-		stream << "Maps for locale '" << lang << "' in inventory: " << std::to_string(mapInventory->getLoadedMaps(lang).size());
-		APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, stream.str().c_str());
-	}	
+	catch (const std::exception& e) {
+		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Exception in map initialization thread.");
+		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, e.what());
+	}
+	catch (...) {
+		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Unknown exception in map initialization thread.");
+	}
+	APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, "Map loading complete.");
 }
 
 /// <summary>
 /// Loads all maps from GW2 API and stores them in the mapInventory.
 /// </summary>
 void MapLoaderService::loadAllMapsFromApi() {
-	for (auto lang : SUPPORTED_LOCAL) {
+	/*for (auto lang : SUPPORTED_LOCAL) {
 		std::map<std::string, gw2::map*> mapInfos = std::map<std::string, gw2::map*>();
 
 		auto continentsResponse = performRequest("/v2/continents?lang=" + lang);
@@ -255,7 +270,7 @@ void MapLoaderService::loadAllMapsFromApi() {
 		for (auto map : mapInfos) {
 			mapInventory->addMap(lang, map.second);
 		}
-	}
+	}*/
 }
 
 /*

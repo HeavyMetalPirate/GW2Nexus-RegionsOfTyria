@@ -18,12 +18,11 @@
 #include <vector>
 #include <map>
 #include <chrono>
+#include <numeric>
 
-//#include <imgui.h>
-
+#include "imgui/imgui.h"
 #include "nexus/Nexus.h"
 #include "mumble/Mumble.h"
-#include "imgui/imgui.h"
 
 #include "Constants.h"
 #include "Settings.h"
@@ -35,5 +34,7 @@ extern Mumble::Data* MumbleLink;
 extern NexusLinkData* NexusLink;
 
 extern MapInventory* mapInventory;
+
+extern bool unloading;
 
 #endif // GLOBALS_H

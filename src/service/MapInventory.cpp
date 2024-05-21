@@ -1,7 +1,6 @@
 #include "MapInventory.h"
 
 MapInventory::MapInventory() {}
-MapInventory::~MapInventory() {}
 
 void MapInventory::addMap(std::string locale, gw2::map* mapInfo) {
 	this->loadedMaps[locale][mapInfo->id] = mapInfo;

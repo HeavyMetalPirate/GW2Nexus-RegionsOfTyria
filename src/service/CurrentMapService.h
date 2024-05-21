@@ -35,12 +35,8 @@ public:
 	/// </summary>
 	/// <returns></returns>
 	MapData* getCurrentMap();
-	/// <summary>
-	/// Gets the current sector data based on Mumble Link data
-	/// </summary>
-	/// <returns></returns>
-	SectorData* getCurrentSector();
 private:
+	MapData* currentMap;
 };
 
 

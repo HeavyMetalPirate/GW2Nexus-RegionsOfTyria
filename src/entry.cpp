@@ -38,10 +38,14 @@ AddonAPI* APIDefs			= nullptr;
 NexusLinkData* NexusLink	= nullptr;
 Mumble::Data* MumbleLink	= nullptr;
 MapInventory* mapInventory  = nullptr; 
+bool unloading = false;
 
 /* settings */
 bool showDebug = false;
 Locale locale = Locale::En;
+bool displayContinent = true;
+bool displayRegion = true;
+bool displayMap = true;
 
 /* services */
 Renderer renderer;
@@ -140,20 +144,21 @@ void AddonLoad(AddonAPI* aApi)
 ///----------------------------------------------------------------------------------------------------
 void AddonUnload()
 {
-	/* let's clean up after ourselves */
+	// Disable everything that listens to this global
+	unloading = true;
+	mapLoader.unload();
+	renderer.unload();
+
+	//APIDefs->RemoveShortcut("QA_MYFIRSTADDON");
+	//APIDefs->DeregisterKeybind(KB_MFA);
+	APIDefs->RemoveSimpleShortcut(ADDON_NAME_LONG);
+
+	APIDefs->UnsubscribeEvent("EV_MUMBLE_IDENTITY_UPDATED", HandleIdentityChanged);
+
 	APIDefs->DeregisterRender(PreRender);
 	APIDefs->DeregisterRender(PostRender);
 	APIDefs->DeregisterRender(AddonRender);
 	APIDefs->DeregisterRender(AddonOptions);
-
-	APIDefs->RemoveShortcut("QA_MYFIRSTADDON");
-	APIDefs->DeregisterKeybind(KB_MFA);
-
-	APIDefs->UnsubscribeEvent("EV_MUMBLE_IDENTITY_UPDATED", HandleIdentityChanged);
-
-	mapLoader.~MapLoaderService();
-	renderer.~Renderer();
-	mapInventory->~MapInventory();
 
 	APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, "<c=#ff0000>Signing off</c>, it was an honor commander.");
 }
@@ -210,6 +215,20 @@ void AddonShortcut() {
 		}
 		ImGui::EndMenu();
 	}
+
+	if (ImGui::BeginMenu("Styling")) {
+		if (ImGui::MenuItem("Display Continent", nullptr, &displayContinent)) {
+			StoreSettings();
+		}
+		if (ImGui::MenuItem("Display Region", nullptr, &displayRegion)) {
+			StoreSettings();
+		}
+		if (ImGui::MenuItem("Display Map", nullptr, &displayMap)) {
+			StoreSettings();
+		}
+		ImGui::EndMenu();
+	}
+
 	if (ImGui::Checkbox("DebugFrame", &showDebug)) {
 
 	}
@@ -238,9 +257,14 @@ void LoadSettings() {
 		if (dataFile.is_open()) {
 			json jsonData;
 			dataFile >> jsonData;
+			dataFile.close();
+
 			Settings settings = jsonData;
 
 			locale = settings.locale;
+			displayContinent = settings.displayContinent;
+			displayRegion = settings.displayRegion;
+			displayMap = settings.displayMap;
 		}
 	}
 	else {
@@ -252,6 +276,9 @@ void LoadSettings() {
 void StoreSettings() {
 	Settings settings = Settings();
 	settings.locale = locale;
+	settings.displayContinent = displayContinent;
+	settings.displayRegion = displayRegion;
+	settings.displayMap = displayMap;
 	json j = settings;
 
 	std::string pathData = getAddonFolder() + "/settings.json";

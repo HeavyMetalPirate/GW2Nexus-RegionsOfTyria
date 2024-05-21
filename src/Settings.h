@@ -76,18 +76,52 @@ inline std::vector<LocaleItem> localeItems = {
 
 struct Settings {
     Locale locale;
+    bool displayContinent;
+    bool displayRegion;
+    bool displayMap;
 };
 inline void to_json(json& j, const Settings& settings) {
     j = json{
-        {"locale", settings.locale}
+        {"locale", settings.locale},
+        {"displayContinent", settings.displayContinent},
+        {"displayRegion", settings.displayRegion},
+        {"displayMap", settings.displayMap}
     };
 }
 inline void from_json(const json& j, Settings& settings) {
-    j.at("locale").get_to(settings.locale);
+    if (j.contains("locale")) {
+        j.at("locale").get_to(settings.locale);
+    }
+    else {
+        settings.locale = Locale::En; // Default
+    }
+    if (j.contains("displayContinent")) {
+        j.at("displayContinent").get_to(settings.displayContinent);
+    }
+    else {
+        settings.displayContinent = true;
+    }
+    if (j.contains("displayRegion")) {
+        j.at("displayRegion").get_to(settings.displayRegion);
+    }
+    else {
+        settings.displayRegion = true;
+    }
+    if (j.contains("displayMap")) {
+        j.at("displayMap").get_to(settings.displayMap);
+    }
+    else {
+        settings.displayMap = true;
+    }
 }
 
-
+// Non stored settings
 extern bool showDebug;
+
+// Stored settings
 extern Locale locale;
+extern bool displayContinent;
+extern bool displayRegion;
+extern bool displayMap;
 
 #endif

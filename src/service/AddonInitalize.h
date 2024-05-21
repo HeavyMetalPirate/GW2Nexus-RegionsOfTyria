@@ -21,7 +21,8 @@ static void unpackResource(const int resourceName, const std::string& resourceTy
 
 	// TODO get from internal bundled resource somehow
 	//HRSRC hResource = FindResource(hSelf, MAKEINTRESOURCE(IDR_MAPS_ZIP), "ZIP");
-	HRSRC hResource = FindResource(hSelf, MAKEINTRESOURCE(resourceName), resourceType.c_str());
+	std::wstring resourceTypeW(resourceType.begin(), resourceType.end());
+	HRSRC hResource = FindResource(hSelf, MAKEINTRESOURCE(resourceName), resourceTypeW.c_str());
 	if (hResource == NULL) {
 		APIDefs->Log(ELogLevel::ELogLevel_CRITICAL, ADDON_NAME, ("Did not find resource: " + targetFileName).c_str());
 		return;
@@ -65,9 +66,10 @@ static void unpackResource(const int resourceName, const std::string& resourceTy
 	}
 
 	// Öffne eine Datei zum Schreiben
-	FILE* file = fopen(outputPath.c_str(), "wb"); // "wb" für Binärschreiben
-	if (file == NULL) {
-		APIDefs->Log(ELogLevel::ELogLevel_CRITICAL, ADDON_NAME, ("Error trying to write (fopen): " + targetFileName).c_str());
+	FILE* file = nullptr;
+	errno_t err = fopen_s(&file, outputPath.c_str(), "wb");
+	if (err != 0 || file == nullptr) {
+		APIDefs->Log(ELogLevel::ELogLevel_CRITICAL, ADDON_NAME, ("Error trying to write (fopen_s): " + targetFileName).c_str());
 		return;
 	}
 
@@ -94,6 +96,5 @@ static void unpackResources() {
 	unpackResource(IDR_FONTS_NORN, "TTF", "font_norn.ttf", false);
 	unpackResource(IDR_FONTS_ASURA, "TTF", "font_asura.ttf", false);
 }
-
 
 #endif
