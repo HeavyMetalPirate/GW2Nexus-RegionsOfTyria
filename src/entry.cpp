@@ -15,6 +15,8 @@
 
 #include "Globals.h"
 
+#include <cstring> // For strcpy_s
+
 /* proto */
 void AddonLoad(AddonAPI* aApi);
 void AddonUnload();
@@ -43,9 +45,12 @@ bool unloading = false;
 /* settings */
 bool showDebug = false;
 Locale locale = Locale::En;
-bool displayContinent = true;
-bool displayRegion = true;
-bool displayMap = true;
+std::string displayFormatSmall = "@c | @r | @m";
+std::string displayFormatLarge = "@s";
+
+// local temps
+char displayFormatSmallBuffer[100] = "";
+char displayFormatLargeBuffer[100] = "";
 
 /* services */
 Renderer renderer;
@@ -80,10 +85,10 @@ extern "C" __declspec(dllexport) AddonDefinition* GetAddonDef()
 	AddonDef.Name = "Regions Of Tyria";
 	AddonDef.Version.Major = 1;
 	AddonDef.Version.Minor = 1;
-	AddonDef.Version.Build = 0;
+	AddonDef.Version.Build = 1;
 	AddonDef.Version.Revision = 0;
 	AddonDef.Author = "HeavyMetalPirate.2695";
-	AddonDef.Description = "Displays the current sector whenever you cross borders, much like your favorite (MMO)RPG does. Spiritual port of the BlishHUD module.";
+	AddonDef.Description = "Displays the current sector whenever you cross borders, much like your favorite (MMO)RPG does.";
 	AddonDef.Load = AddonLoad;
 	AddonDef.Unload = AddonUnload;
 	AddonDef.Flags = EAddonFlags_None;
@@ -160,6 +165,8 @@ void AddonUnload()
 	APIDefs->DeregisterRender(AddonRender);
 	APIDefs->DeregisterRender(AddonOptions);
 
+	StoreSettings();
+
 	APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, "<c=#ff0000>Signing off</c>, it was an honor commander.");
 }
 
@@ -192,43 +199,34 @@ void AddonRender()
 ///----------------------------------------------------------------------------------------------------
 void AddonOptions()
 {
-	/*
+	
 	ImGui::Separator();
-	ImGui::Text("My first Nexus addon");
-	ImGui::Checkbox("Some setting", &someSetting);
-	*/
+	ImGui::Text("Locale");
+	for (auto item : localeItems) {
+		bool selected = locale == item.value;
+		if (ImGui::Checkbox(item.description.c_str(), &selected))
+		{
+			if (selected)
+			{
+				locale = item.value;
+			}
+		}
+	}
+
+	ImGui::Separator();
+	ImGui::Text("Styling");
+	ImGui::Text("Placeholders: @c = Continent, @r = Region, @m = Map, @s = Sector");
+	if (ImGui::InputText("Format (small heading)", displayFormatSmallBuffer, 100)) {
+		displayFormatSmall = std::string(displayFormatSmallBuffer);
+	}
+	if (ImGui::InputText("Format (large title)", displayFormatLargeBuffer, 100)) {
+		displayFormatLarge = std::string(displayFormatLargeBuffer);
+	}
+	ImGui::Separator();
 }
 
 void AddonShortcut() {
-
-	if (ImGui::BeginMenu("Locale")) {
-		for (auto item : localeItems) {
-			bool selected = locale == item.value;
-			if (ImGui::MenuItem(item.description.c_str(), nullptr, &selected))
-			{
-				if (selected)
-				{
-					locale = item.value;
-					StoreSettings();
-				}
-			}
-		}
-		ImGui::EndMenu();
-	}
-
-	if (ImGui::BeginMenu("Styling")) {
-		if (ImGui::MenuItem("Display Continent", nullptr, &displayContinent)) {
-			StoreSettings();
-		}
-		if (ImGui::MenuItem("Display Region", nullptr, &displayRegion)) {
-			StoreSettings();
-		}
-		if (ImGui::MenuItem("Display Map", nullptr, &displayMap)) {
-			StoreSettings();
-		}
-		ImGui::EndMenu();
-	}
-
+	// TODO?
 	if (ImGui::Checkbox("DebugFrame", &showDebug)) {
 
 	}
@@ -262,9 +260,11 @@ void LoadSettings() {
 			Settings settings = jsonData;
 
 			locale = settings.locale;
-			displayContinent = settings.displayContinent;
-			displayRegion = settings.displayRegion;
-			displayMap = settings.displayMap;
+			displayFormatSmall = settings.displayFormatSmall;
+			displayFormatLarge = settings.displayFormatLarge;
+		
+			displayFormatSmall.copy(displayFormatSmallBuffer, 100);
+			displayFormatLarge.copy(displayFormatLargeBuffer, 100);
 		}
 	}
 	else {
@@ -276,9 +276,8 @@ void LoadSettings() {
 void StoreSettings() {
 	Settings settings = Settings();
 	settings.locale = locale;
-	settings.displayContinent = displayContinent;
-	settings.displayRegion = displayRegion;
-	settings.displayMap = displayMap;
+	settings.displayFormatSmall = displayFormatSmall;
+	settings.displayFormatLarge = displayFormatLarge;
 	json j = settings;
 
 	std::string pathData = getAddonFolder() + "/settings.json";

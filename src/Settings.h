@@ -76,16 +76,14 @@ inline std::vector<LocaleItem> localeItems = {
 
 struct Settings {
     Locale locale;
-    bool displayContinent;
-    bool displayRegion;
-    bool displayMap;
+    std::string displayFormatSmall;
+    std::string displayFormatLarge;
 };
 inline void to_json(json& j, const Settings& settings) {
     j = json{
         {"locale", settings.locale},
-        {"displayContinent", settings.displayContinent},
-        {"displayRegion", settings.displayRegion},
-        {"displayMap", settings.displayMap}
+        {"displayFormatSmall", settings.displayFormatSmall},
+        {"displayFormatLarge", settings.displayFormatLarge}
     };
 }
 inline void from_json(const json& j, Settings& settings) {
@@ -95,23 +93,17 @@ inline void from_json(const json& j, Settings& settings) {
     else {
         settings.locale = Locale::En; // Default
     }
-    if (j.contains("displayContinent")) {
-        j.at("displayContinent").get_to(settings.displayContinent);
+    if (j.contains("displayFormatSmall")) {
+        j.at("displayFormatSmall").get_to(settings.displayFormatSmall);
     }
     else {
-        settings.displayContinent = true;
+        settings.displayFormatSmall = "@c | @r | @m";
     }
-    if (j.contains("displayRegion")) {
-        j.at("displayRegion").get_to(settings.displayRegion);
-    }
-    else {
-        settings.displayRegion = true;
-    }
-    if (j.contains("displayMap")) {
-        j.at("displayMap").get_to(settings.displayMap);
+    if (j.contains("displayFormatLarge")) {
+        j.at("displayFormatLarge").get_to(settings.displayFormatLarge);
     }
     else {
-        settings.displayMap = true;
+        settings.displayFormatLarge = "@s";
     }
 }
 
@@ -120,8 +112,7 @@ extern bool showDebug;
 
 // Stored settings
 extern Locale locale;
-extern bool displayContinent;
-extern bool displayRegion;
-extern bool displayMap;
+extern std::string displayFormatSmall;
+extern std::string displayFormatLarge;
 
 #endif

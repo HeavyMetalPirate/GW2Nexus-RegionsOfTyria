@@ -19,6 +19,7 @@ float opacity = 0.0f;
 
 CurrentMapService currentMapService = CurrentMapService();
 int currentSectorId = -1;
+int currentMapId = -1;
 
 Renderer::Renderer() {}
 Renderer::~Renderer() {}
@@ -134,6 +135,7 @@ void centerText(std::string text, float yOffset) {
 /// https://www.youtube.com/watch?v=wBC3Tl0dg4M
 /// </summary>
 void fade() {
+	animating = true,
 	cancelAnimation = false;
 	try {
 		// fade in
@@ -187,6 +189,14 @@ void fade() {
 	APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, "Animation complete.");
 }
 
+void replaceAll(std::string& str, const std::string& from, const std::string& to) {
+	size_t startPos = 0;
+	while ((startPos = str.find(from, startPos)) != std::string::npos) {
+		str.replace(startPos, from.length(), to);
+		startPos += to.length(); // Move past the replaced substring
+	}
+}
+
 void renderSectorInfo() {
 
 	// TODO possible skips for render:
@@ -197,7 +207,9 @@ void renderSectorInfo() {
 
 	MapData* currentMap = currentMapService.getCurrentMap();
 	if (currentMap == nullptr) return;
-	if (currentSectorId != currentMap->currentSector.id) {
+	if (currentSectorId != currentMap->currentSector.id // sector change
+		|| currentMapId != currentMap->id) { // map change, we could technically end up in a sector with same id since I parse unknown sectors as -1
+		currentMapId = currentMap->id;
 		currentSectorId = currentMap->currentSector.id;
 		cancelAnimation = true;
 		if (animationThread.joinable()) {
@@ -210,6 +222,8 @@ void renderSectorInfo() {
 			animationThread.detach();
 		}
 	}
+	
+	if (!animating) return;
 
 	ImGuiIO& io = ImGui::GetIO();
 	ImVec2 windowSize = io.DisplaySize;
@@ -226,37 +240,43 @@ void renderSectorInfo() {
 		ImGuiWindowFlags_NoInputs |
 		ImGuiWindowFlags_NoMouseInputs))
 	{
-		// Default Font
-		// Sector name in nice and big
+		// Figure out the texts to display based on the templates provided
+		std::string smallText = std::string(displayFormatSmall);
+		// Before anyone flames me for not doing lower/upper case here: the display format might have user defined text that shouldn't be casted
+		// and I am way too lazy to parse only my placeholders to u/lcase.
+		replaceAll(smallText, "@c", currentMap->continentName);
+		replaceAll(smallText, "@C", currentMap->continentName);
+		replaceAll(smallText, "@r", currentMap->regionName);
+		replaceAll(smallText, "@R", currentMap->regionName);
+		replaceAll(smallText, "@m", currentMap->name);
+		replaceAll(smallText, "@M", currentMap->name);
+		replaceAll(smallText, "@s", currentMap->currentSector.name);
+		replaceAll(smallText, "@S", currentMap->currentSector.name);
+
+		std::string largeText = std::string(displayFormatLarge);
+		// See reasoning above. Still too lazy, nothing has changed in the past 5 or so seconds.
+		replaceAll(largeText, "@c", currentMap->continentName);
+		replaceAll(largeText, "@C", currentMap->continentName);
+		replaceAll(largeText, "@r", currentMap->regionName);
+		replaceAll(largeText, "@R", currentMap->regionName);
+		replaceAll(largeText, "@m", currentMap->name);
+		replaceAll(largeText, "@M", currentMap->name);
+		replaceAll(largeText, "@s", currentMap->currentSector.name);
+		replaceAll(largeText, "@S", currentMap->currentSector.name);
+				
+		// Large Text - change scale just for this
 		ImFont* font = (ImFont*)NexusLink->FontBig;
 		float originalFontScale = font->Scale;
 		font->Scale = 1.5f;
-
 		ImGui::PushFont((ImFont*)NexusLink->FontBig);
-		centerText(currentMap->currentSector.name, 3.5f);
+		centerText(largeText, 3.5f);
 		font->Scale = originalFontScale;
 		ImGui::PopFont();
-
-		// Map + Region + Continent (maybe we can figure this out in settings what user wants?)
-
-		std::vector<std::string> strings;
-		if (displayContinent) {
-			strings.push_back(currentMap->continentName);
-		}
-		if (displayRegion) {
-			strings.push_back(currentMap->regionName);
-		}
-		if (displayMap) {
-			strings.push_back(currentMap->name);
-		}
-		if (strings.size() > 0) {
-			std::string miniText = std::accumulate(std::next(strings.begin()), strings.end(), strings[0], [](std::string a, std::string b) {
-				return a + " | " + b;
-				});
-			ImGui::PushFont((ImFont*)NexusLink->Font);
-			centerText(miniText, 3.8f);
-			ImGui::PopFont();
-		}
+		
+		// Small Text
+		ImGui::PushFont((ImFont*)NexusLink->Font);
+		centerText(smallText, 3.8f);
+		ImGui::PopFont();
 
 		/*
 		* Once we figured out custom fonts, use the right font for our character race, or any other according to settings (?)
