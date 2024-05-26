@@ -5,16 +5,20 @@
 using json = nlohmann::json;
 
 /* Proto */
-void centerText(std::string text, float yOffset);
+void centerText(std::string text, float textY, float opacityOverride);
 void fade();
 
 /* Render subfunctions */
+void renderSampleInfo();
 void renderSectorInfo();
+void renderInfo(std::string continent, std::string region, std::string map, std::string sector, float opacityOverride);
 void renderDebugInfo();
 
 std::thread animationThread;
-bool animating = false;
+std::mutex animMutex;
+
 bool cancelAnimation = false;
+bool animating;
 float opacity = 0.0f;
 
 CurrentMapService currentMapService = CurrentMapService();
@@ -25,6 +29,7 @@ Renderer::Renderer() {}
 Renderer::~Renderer() {}
 
 void Renderer::unload() {
+	unloading = true;
 	if (animationThread.joinable()) {
 		animationThread.join();
 	}
@@ -107,23 +112,31 @@ void Renderer::postRender(ImGuiIO& io) {
 
 void Renderer::render() {
 	if (unloading) return;
+	renderSampleInfo();
 	renderSectorInfo();
 	renderDebugInfo();
 }
 
-void centerText(std::string text, float yOffset) {
+void centerText(std::string text, float textY, float opacityOverride) {
 	ImGuiIO& io = ImGui::GetIO();
 	ImVec2 windowSize = io.DisplaySize;
 
 	// Center Text voodoo
 	ImVec2 textSize = ImGui::CalcTextSize(text.c_str());
 	float textX = (windowSize.x - textSize.x) / 2.0f;
-	float textY = windowSize.y / yOffset;
 
 	ImGui::SetCursorScreenPos(ImVec2(textX + 2, textY + 2));
-	ImGui::TextColored(ImVec4(0, 0, 0, opacity), text.c_str()); // shadow
+	ImGui::TextColored(ImVec4(0, 0, 0, opacityOverride), text.c_str()); // shadow
 	ImGui::SetCursorPos(ImVec2(textX, textY));
-	ImGui::TextColored(ImVec4(255,255,255, opacity), text.c_str()); // text
+	ImGui::TextColored(ImVec4(settings.fontColor[0], settings.fontColor[1], settings.fontColor[2], opacityOverride), text.c_str()); // text
+}
+
+
+void cancelCurrentAnimation() {
+	opacity = 0.0f;
+	animating = false;
+	cancelAnimation = false;
+	//APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, "Animation cancelled");
 }
 
 /// <summary>
@@ -135,14 +148,17 @@ void centerText(std::string text, float yOffset) {
 /// https://www.youtube.com/watch?v=wBC3Tl0dg4M
 /// </summary>
 void fade() {
-	animating = true,
-	cancelAnimation = false;
+	std::lock_guard<std::mutex> lock(animMutex); // Ensures single-thread access
+
+	if (animating) return; // we are already animating, so stop it now
+	//APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, "Animation started.");
+	animating = true;
 	try {
 		// fade in
 		while (true)
 		{
 			if (unloading || cancelAnimation) {
-				opacity = 0.0f;
+				cancelCurrentAnimation();
 				return;
 			}
 			opacity += 0.05f;
@@ -153,9 +169,10 @@ void fade() {
 
 			Sleep(35);
 		}
+		// Stay sharp
 		for (int i = 0; i < 3000;i++) {
 			if (unloading || cancelAnimation) {
-				opacity = 0.0f;
+				cancelCurrentAnimation();
 				return;
 			}
 			Sleep(1); // sleep first so the text stays a little
@@ -164,7 +181,7 @@ void fade() {
 		while (true)
 		{
 			if (unloading || cancelAnimation) {
-				opacity = 0.0f;
+				cancelCurrentAnimation();
 				return;
 			}
 
@@ -185,8 +202,9 @@ void fade() {
 	catch (...) {
 		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Unknown exception thread.");
 	}
+	cancelAnimation = false;
 	animating = false;
-	APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, "Animation complete.");
+	//APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, "Animation thread complete.");
 }
 
 void replaceAll(std::string& str, const std::string& from, const std::string& to) {
@@ -195,6 +213,11 @@ void replaceAll(std::string& str, const std::string& from, const std::string& to
 		str.replace(startPos, from.length(), to);
 		startPos += to.length(); // Move past the replaced substring
 	}
+}
+
+void renderSampleInfo() {
+	if (!showTemplate) return;
+	renderInfo("Continent", "Region", "Map", "Sector", 1.0f);
 }
 
 void renderSectorInfo() {
@@ -207,24 +230,32 @@ void renderSectorInfo() {
 
 	MapData* currentMap = currentMapService.getCurrentMap();
 	if (currentMap == nullptr) return;
+
 	if (currentSectorId != currentMap->currentSector.id // sector change
 		|| currentMapId != currentMap->id) { // map change, we could technically end up in a sector with same id since I parse unknown sectors as -1
+	
 		currentMapId = currentMap->id;
 		currentSectorId = currentMap->currentSector.id;
-		cancelAnimation = true;
-		if (animationThread.joinable()) {
-			animationThread.join();
-			animating = false;
+
+		// check if we are currently animating and cancel the animation, yeah?
+		if (animating) {
+			cancelAnimation = true;			
+			while (animating) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(1));
+			}
+			//APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, "Animation cancelled successfully.");
 		}
-		// we need to render! start the animation thread if not animating already
-		if (!animating && !animationThread.joinable()) {
-			animationThread = std::thread(fade);
-			animationThread.detach();
-		}
+		//APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, "Starting new animation thread.");
+		cancelAnimation = false;
+		animationThread = std::thread(fade);
+		animationThread.detach();		
 	}
 	
 	if (!animating) return;
+	renderInfo(currentMap->continentName, currentMap->regionName, currentMap->name, currentMap->currentSector.name, opacity);
+}
 
+void renderInfo(std::string continent, std::string region, std::string map, std::string sector, float opacityOverride) {
 	ImGuiIO& io = ImGui::GetIO();
 	ImVec2 windowSize = io.DisplaySize;
 	// Make the next Window go over the entire screen for easier calculations
@@ -241,41 +272,49 @@ void renderSectorInfo() {
 		ImGuiWindowFlags_NoMouseInputs))
 	{
 		// Figure out the texts to display based on the templates provided
-		std::string smallText = std::string(displayFormatSmall);
+		// TODO FIXME if displayFormatSmall or Large are empty, revert to a default?
+		// maybe only if both are empty because I could for example want the small text be empty?
+		// maybe also only for largeText. gonna ponder over this.
+		std::string smallText = std::string(settings.displayFormatSmall);
 		// Before anyone flames me for not doing lower/upper case here: the display format might have user defined text that shouldn't be casted
 		// and I am way too lazy to parse only my placeholders to u/lcase.
-		replaceAll(smallText, "@c", currentMap->continentName);
-		replaceAll(smallText, "@C", currentMap->continentName);
-		replaceAll(smallText, "@r", currentMap->regionName);
-		replaceAll(smallText, "@R", currentMap->regionName);
-		replaceAll(smallText, "@m", currentMap->name);
-		replaceAll(smallText, "@M", currentMap->name);
-		replaceAll(smallText, "@s", currentMap->currentSector.name);
-		replaceAll(smallText, "@S", currentMap->currentSector.name);
+		replaceAll(smallText, "@c", continent);
+		replaceAll(smallText, "@C", continent);
+		replaceAll(smallText, "@r", region);
+		replaceAll(smallText, "@R", region);
+		replaceAll(smallText, "@m", map);
+		replaceAll(smallText, "@M", map);
+		replaceAll(smallText, "@s", sector);
+		replaceAll(smallText, "@S", sector);
 
-		std::string largeText = std::string(displayFormatLarge);
+		std::string largeText = std::string(settings.displayFormatLarge);
+		if (largeText.empty()) largeText = "@s"; // default if empty
 		// See reasoning above. Still too lazy, nothing has changed in the past 5 or so seconds.
-		replaceAll(largeText, "@c", currentMap->continentName);
-		replaceAll(largeText, "@C", currentMap->continentName);
-		replaceAll(largeText, "@r", currentMap->regionName);
-		replaceAll(largeText, "@R", currentMap->regionName);
-		replaceAll(largeText, "@m", currentMap->name);
-		replaceAll(largeText, "@M", currentMap->name);
-		replaceAll(largeText, "@s", currentMap->currentSector.name);
-		replaceAll(largeText, "@S", currentMap->currentSector.name);
-				
+		replaceAll(largeText, "@c", continent);
+		replaceAll(largeText, "@C", continent);
+		replaceAll(largeText, "@r", region);
+		replaceAll(largeText, "@R", region);
+		replaceAll(largeText, "@m", map);
+		replaceAll(largeText, "@M", map);
+		replaceAll(largeText, "@s", sector);
+		replaceAll(largeText, "@S", sector);
+
 		// Large Text - change scale just for this
 		ImFont* font = (ImFont*)NexusLink->FontBig;
 		float originalFontScale = font->Scale;
-		font->Scale = 1.5f;
-		ImGui::PushFont((ImFont*)NexusLink->FontBig);
-		centerText(largeText, 3.5f);
+		font->Scale = settings.fontScale;
+		ImGui::PushFont(font);
+		centerText(largeText, settings.verticalPosition, opacityOverride);
 		font->Scale = originalFontScale;
 		ImGui::PopFont();
-		
+
 		// Small Text
-		ImGui::PushFont((ImFont*)NexusLink->Font);
-		centerText(smallText, 3.8f);
+		ImFont* fontSmall = (ImFont*)NexusLink->Font;
+		originalFontScale = fontSmall->Scale;
+		fontSmall->Scale = (settings.fontScale *2/3); // scale it a little smaller
+		ImGui::PushFont(fontSmall);
+		centerText(smallText, settings.verticalPosition - settings.spacing, opacityOverride);
+		fontSmall->Scale = originalFontScale;
 		ImGui::PopFont();
 
 		/*

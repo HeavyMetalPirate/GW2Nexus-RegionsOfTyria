@@ -44,9 +44,17 @@ bool unloading = false;
 
 /* settings */
 bool showDebug = false;
-Locale locale = Locale::En;
-std::string displayFormatSmall = "@c | @r | @m";
-std::string displayFormatLarge = "@s";
+bool showTemplate = false;
+
+Settings settings = {
+	Locale::En,
+	"@c | @r | @m",
+	"@s",
+	300.0f,
+	25.0f,
+	1.5f,
+	{255,255,255}
+};
 
 // local temps
 char displayFormatSmallBuffer[100] = "";
@@ -55,7 +63,6 @@ char displayFormatLargeBuffer[100] = "";
 /* services */
 Renderer renderer;
 MapLoaderService mapLoader;
-
 
 ///----------------------------------------------------------------------------------------------------
 /// DllMain:
@@ -84,8 +91,8 @@ extern "C" __declspec(dllexport) AddonDefinition* GetAddonDef()
 	AddonDef.APIVersion = NEXUS_API_VERSION;
 	AddonDef.Name = "Regions Of Tyria";
 	AddonDef.Version.Major = 1;
-	AddonDef.Version.Minor = 1;
-	AddonDef.Version.Build = 1;
+	AddonDef.Version.Minor = 2;
+	AddonDef.Version.Build = 0;
 	AddonDef.Version.Revision = 0;
 	AddonDef.Author = "HeavyMetalPirate.2695";
 	AddonDef.Description = "Displays the current sector whenever you cross borders, much like your favorite (MMO)RPG does.";
@@ -197,32 +204,49 @@ void AddonRender()
 /// AddonOptions:
 /// 	Basically an ImGui callback that doesn't need its own Begin/End calls.
 ///----------------------------------------------------------------------------------------------------
+/// 
+/// 
+
+
+
 void AddonOptions()
 {
-	
 	ImGui::Separator();
 	ImGui::Text("Locale");
 	for (auto item : localeItems) {
-		bool selected = locale == item.value;
+		bool selected = settings.locale == item.value;
 		if (ImGui::Checkbox(item.description.c_str(), &selected))
 		{
 			if (selected)
 			{
-				locale = item.value;
+				settings.locale = item.value;
 			}
 		}
 	}
 
 	ImGui::Separator();
 	ImGui::Text("Styling");
+	ImGui::Checkbox("Show sample text", &showTemplate);
 	ImGui::Text("Placeholders: @c = Continent, @r = Region, @m = Map, @s = Sector");
 	if (ImGui::InputText("Format (small heading)", displayFormatSmallBuffer, 100)) {
-		displayFormatSmall = std::string(displayFormatSmallBuffer);
+		settings.displayFormatSmall = std::string(displayFormatSmallBuffer);
 	}
 	if (ImGui::InputText("Format (large title)", displayFormatLargeBuffer, 100)) {
-		displayFormatLarge = std::string(displayFormatLargeBuffer);
+		settings.displayFormatLarge = std::string(displayFormatLargeBuffer);
 	}
+	
 	ImGui::Separator();
+	ImGui::Text("Display");
+	ImGui::SliderFloat("Vertical position", &settings.verticalPosition, 0.0f, ImGui::GetIO().DisplaySize.y);
+	ImGui::SliderFloat("Spacing", &settings.spacing, 0.0f, 100.0f);
+	ImGui::SliderFloat("Font scale", &settings.fontScale, 0.5f, 3.0f);
+	ImGui::ColorEdit3("FontColor", settings.fontColor);
+
+	// TODO Settings for:
+	// - height (Y axis) of the popup texts
+	// - Color picker for text color
+	// - scale setting for fonts
+	// - settings to disable a piece of the addon like "no titles but the widget" etc. for when I have more elements to show for
 }
 
 void AddonShortcut() {
@@ -257,14 +281,9 @@ void LoadSettings() {
 			dataFile >> jsonData;
 			dataFile.close();
 
-			Settings settings = jsonData;
-
-			locale = settings.locale;
-			displayFormatSmall = settings.displayFormatSmall;
-			displayFormatLarge = settings.displayFormatLarge;
-		
-			displayFormatSmall.copy(displayFormatSmallBuffer, 100);
-			displayFormatLarge.copy(displayFormatLargeBuffer, 100);
+			settings = jsonData;
+			settings.displayFormatSmall.copy(displayFormatSmallBuffer, 100);
+			settings.displayFormatLarge.copy(displayFormatLargeBuffer, 100);
 		}
 	}
 	else {
@@ -274,10 +293,6 @@ void LoadSettings() {
 }
 
 void StoreSettings() {
-	Settings settings = Settings();
-	settings.locale = locale;
-	settings.displayFormatSmall = displayFormatSmall;
-	settings.displayFormatLarge = displayFormatLarge;
 	json j = settings;
 
 	std::string pathData = getAddonFolder() + "/settings.json";

@@ -4,6 +4,7 @@
 #include "../Globals.h"
 #include "CurrentMapService.h"
 #include <thread>
+#include <mutex>
 
 class Renderer {
 public:

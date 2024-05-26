@@ -74,16 +74,30 @@ inline std::vector<LocaleItem> localeItems = {
     //{ Locale::Zh, "zh", "中文" }
 };
 
+/// ================================================================================
+/// <summary>
+/// Settings Struct & JSON functionality
+/// </summary>
 struct Settings {
     Locale locale;
+    
     std::string displayFormatSmall;
     std::string displayFormatLarge;
+
+    float verticalPosition;
+    float spacing;
+    float fontScale;
+    float fontColor[3];
 };
 inline void to_json(json& j, const Settings& settings) {
     j = json{
         {"locale", settings.locale},
         {"displayFormatSmall", settings.displayFormatSmall},
-        {"displayFormatLarge", settings.displayFormatLarge}
+        {"displayFormatLarge", settings.displayFormatLarge},
+        {"verticalPosition", settings.verticalPosition},
+        {"spacing", settings.spacing},
+        {"fontScale", settings.fontScale},
+        {"fontColor", settings.fontColor}
     };
 }
 inline void from_json(const json& j, Settings& settings) {
@@ -105,14 +119,41 @@ inline void from_json(const json& j, Settings& settings) {
     else {
         settings.displayFormatLarge = "@s";
     }
+    if (j.contains("verticalPosition")) {
+        j.at("verticalPosition").get_to(settings.verticalPosition);
+    }
+    else {
+        settings.verticalPosition = 300;
+    }
+    if (j.contains("spacing")) {
+        j.at("spacing").get_to(settings.spacing);
+    }
+    else {
+        settings.spacing = 25;
+    }
+    if (j.contains("fontScale")) {
+        j.at("fontScale").get_to(settings.fontScale);
+    }
+    else {
+        settings.fontScale = 1.5f;
+    }
+    if (j.contains("fontColor")) {
+        j.at("fontColor").get_to(settings.fontColor);
+    }
+    else {
+        settings.fontColor[0] = 255.0f;
+        settings.fontColor[1] = 255.0f;
+        settings.fontColor[2] = 255.0f;
+    }
 }
+/// ================================================================================
+
 
 // Non stored settings
 extern bool showDebug;
+extern bool showTemplate;
 
 // Stored settings
-extern Locale locale;
-extern std::string displayFormatSmall;
-extern std::string displayFormatLarge;
+extern Settings settings;
 
 #endif

@@ -16,7 +16,7 @@ MapData* CurrentMapService::getCurrentMap() {
 	int currentMapId = MumbleLink->Context.MapID;
 	auto position = MumbleLink->AvatarPosition;
 
-	std::string localestr = GetLocaleAsString(locale);
+	std::string localestr = GetLocaleAsString(settings.locale);
 	
 	gw2::map* map = mapInventory->getMapInfo(localestr, currentMapId);
 	if (map == nullptr) return nullptr;
