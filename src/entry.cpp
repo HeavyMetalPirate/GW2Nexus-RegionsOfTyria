@@ -34,17 +34,24 @@ void StoreSettings();
 std::string getAddonFolder();
 
 /* globals */
-HMODULE hSelf				= nullptr;
-AddonDefinition AddonDef	= {};
-AddonAPI* APIDefs			= nullptr;
-NexusLinkData* NexusLink	= nullptr;
-Mumble::Data* MumbleLink	= nullptr;
-MapInventory* mapInventory  = nullptr; 
+HMODULE hSelf				   = nullptr;
+AddonDefinition AddonDef	   = {};
+AddonAPI* APIDefs			   = nullptr;
+NexusLinkData* NexusLink	   = nullptr;
+Mumble::Data* MumbleLink	   = nullptr;
+MapInventory* mapInventory     = nullptr; 
+WorldInventory* worldInventory = nullptr;
+gw2api::wvw::match* match      = nullptr;
+
 bool unloading = false;
 
 /* settings */
 bool showDebug = false;
 bool showTemplate = false;
+bool showServerSelection = false;
+
+// local temps
+std::string characterName = "";
 
 Settings settings = {
 	Locale::En,
@@ -137,6 +144,7 @@ void AddonLoad(AddonAPI* aApi)
 	renderer = Renderer();
 	mapLoader = MapLoaderService();
 	mapInventory = new MapInventory();
+	worldInventory = new WorldInventory();
 
 	// Start filling the inventory in the background
 	mapLoader.initializeMapStorage();
@@ -206,7 +214,12 @@ void AddonRender()
 ///----------------------------------------------------------------------------------------------------
 /// 
 /// 
-
+int InputTextFilterNumbers(ImGuiInputTextCallbackData* data)
+{
+	if (data->EventChar < 256 && strchr("0123456789", (char)data->EventChar))
+		return 0;
+	return 1;
+}
 
 
 void AddonOptions()
@@ -242,10 +255,72 @@ void AddonOptions()
 	ImGui::SliderFloat("Font scale", &settings.fontScale, 0.5f, 3.0f);
 	ImGui::ColorEdit3("FontColor", settings.fontColor);
 
+	ImGui::Separator();
+	ImGui::Text("WvW specific settings");
+	gw2api::worlds::world* current = worldInventory->getWorld(GetLocaleAsString(settings.locale), settings.worldId);
+
+	if (current == nullptr) {
+		ImGui::Text("No WvW world selected as home.");
+	}
+	else {
+		ImGui::Text(("Current world selection: " + current->name).c_str());
+	}
+	if (ImGui::Button("Server Selection")) {
+		showServerSelection = !showServerSelection;
+	}
+
+	if (showServerSelection) {
+		if (ImGui::CollapsingHeader("US Servers")) {
+			const int columns = 6; // Number of columns in the grid
+			if (ImGui::BeginTable("US_Servers_Table", columns)) {
+				int i = 0;
+				for (auto w : worldInventory->getAllWorlds(GetLocaleAsString(settings.locale))) {
+					if (w->id / 1000 == 1) {
+
+						if (i % columns == 0) {
+							ImGui::TableNextRow();
+						}
+						ImGui::TableNextColumn();
+
+						if (ImGui::Button(w->name.c_str())) {
+							settings.worldId = w->id;
+							mapLoader.loadWvWMatchFromAPI();
+							showServerSelection = false;
+						}
+						
+						i++;
+					}
+				}
+				ImGui::EndTable();
+			}
+		}
+		if (ImGui::CollapsingHeader("EU Servers")) {
+			const int columns = 6; // Number of columns in the grid
+			if (ImGui::BeginTable("EU_Servers_Table", columns)) {
+				int i = 0;
+				for (auto w : worldInventory->getAllWorlds(GetLocaleAsString(settings.locale))) {
+					if (w->id / 1000 == 2) {
+
+						if (i % columns == 0) {
+							ImGui::TableNextRow();
+						}
+						ImGui::TableNextColumn();
+
+						if (ImGui::Button(w->name.c_str())) {
+							settings.worldId = w->id;
+							mapLoader.loadWvWMatchFromAPI();
+							showServerSelection = false;
+						}
+
+						i++;
+					}
+				}
+				ImGui::EndTable();
+			}
+		}
+	}
+
 	// TODO Settings for:
-	// - height (Y axis) of the popup texts
-	// - Color picker for text color
-	// - scale setting for fonts
 	// - settings to disable a piece of the addon like "no titles but the widget" etc. for when I have more elements to show for
 }
 
@@ -268,6 +343,11 @@ void ProcessKeybind(const char* aIdentifier)
 
 void HandleIdentityChanged(void* anEventArgs) {
 	Mumble::Identity* identity = (Mumble::Identity*)anEventArgs;
+	if (identity->Name != characterName.c_str()) {
+		characterName = std::string(identity->Name);
+		// trigger sector reset on currentMapService
+		renderer.changeCurrentCharacter(characterName);
+	}
 }
 
 void LoadSettings() {

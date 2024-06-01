@@ -5,10 +5,6 @@ CurrentMapService::~CurrentMapService() {}
 
 MapData* CurrentMapService::getCurrentMap() {
 
-	// currently broken in competitive modes due to mumble not delivering global coordinates. disable until I can properly calculate it
-	if (MumbleLink->Context.IsCompetitive) {
-		return nullptr;
-	}
 	if (!NexusLink->IsGameplay) {
 		return nullptr; // do not update while not in gameplay
 	}
@@ -16,8 +12,7 @@ MapData* CurrentMapService::getCurrentMap() {
 	int currentMapId = MumbleLink->Context.MapID;
 	auto position = MumbleLink->AvatarPosition;
 
-	std::string localestr = GetLocaleAsString(settings.locale);
-	
+	std::string localestr = GetLocaleAsString(settings.locale);	
 	gw2::map* map = mapInventory->getMapInfo(localestr, currentMapId);
 	if (map == nullptr) return nullptr;
 
@@ -31,8 +26,18 @@ MapData* CurrentMapService::getCurrentMap() {
 		currentSector.name = map->name; // use map name instead
 	}
 	else {
-		float x = MumbleLink->Context.Compass.PlayerPosition.X;
-		float y = MumbleLink->Context.Compass.PlayerPosition.Y;
+		float x, y;
+
+		if (MumbleLink->Context.IsCompetitive) {
+			gw2::coordinate calcPos = calculatePos();
+			x = calcPos.x;
+			y = calcPos.y;
+		}
+		else {
+			x = MumbleLink->Context.Compass.PlayerPosition.X;
+			y = MumbleLink->Context.Compass.PlayerPosition.Y;
+		}
+
 		for (auto sector : map->sectors) {
 			bool inside = false;
 			size_t count = sector.second.bounds.size();
@@ -66,4 +71,20 @@ MapData* CurrentMapService::getCurrentMap() {
 	currentMap->currentSector = currentSector;
 
 	return currentMap;
+}
+
+gw2::coordinate CurrentMapService::calculatePos() {
+	std::string localestr = GetLocaleAsString(settings.locale);
+	gw2::map* map = mapInventory->getMapInfo(localestr, MumbleLink->Context.MapID);
+	if (map == nullptr) return { 0,0 };
+
+	// convert from metres (mumble) to inches (map API) by * 39.3700787
+	float x = MumbleLink->AvatarPosition.X * 39.3700787;
+	float y = MumbleLink->AvatarPosition.Z * 39.3700787;
+
+	float calculatedX, calculatedY;
+	calculatedX = map->continentRect[0].x + (1 * (x - map->mapRect[0].x) / (map->mapRect[1].x - map->mapRect[0].x) * (map->continentRect[1].x - map->continentRect[0].x));
+	calculatedY = map->continentRect[0].y + (-1 * (y - map->mapRect[1].y) / (map->mapRect[1].y - map->mapRect[0].y) * (map->continentRect[1].y - map->continentRect[0].y));
+
+	return { calculatedX, calculatedY };
 }

@@ -127,7 +127,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>
       </PrecompiledHeaderFile>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -168,7 +168,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>
       </PrecompiledHeaderFile>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -183,8 +183,9 @@
   <ItemGroup>
     <ClInclude Include="Constants.h" />
     <ClInclude Include="entity\GW2API_Continents.h" />
+    <ClInclude Include="entity\GW2API_Worlds.h" />
+    <ClInclude Include="entity\GW2API_WvW.h" />
     <ClInclude Include="Globals.h" />
-    <ClInclude Include="httplib\httplib.h" />
     <ClInclude Include="imgui\imconfig.h" />
     <ClInclude Include="imgui\imgui.h" />
     <ClInclude Include="imgui\imgui_impl_dx11.h" />
@@ -199,8 +200,10 @@
     <ClInclude Include="service\AddonInitalize.h" />
     <ClInclude Include="service\AddonRenderer.h" />
     <ClInclude Include="service\CurrentMapService.h" />
+    <ClInclude Include="service\HttpClient.h" />
     <ClInclude Include="service\MapInventory.h" />
     <ClInclude Include="service\MapLoaderService.h" />
+    <ClInclude Include="service\WorldInventory.h" />
     <ClInclude Include="Settings.h" />
     <ClInclude Include="ziplib\src\miniz.h" />
     <ClInclude Include="ziplib\src\zip.h" />
@@ -218,6 +221,7 @@
     <ClCompile Include="service\CurrentMapService.cpp" />
     <ClCompile Include="service\MapInventory.cpp" />
     <ClCompile Include="service\MapLoaderService.cpp" />
+    <ClCompile Include="service\WorldInventory.cpp" />
     <ClCompile Include="ziplib\src\zip.c" />
   </ItemGroup>
   <ItemGroup>

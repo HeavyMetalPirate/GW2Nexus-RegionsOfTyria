@@ -35,6 +35,8 @@ public:
 	/// </summary>
 	/// <returns></returns>
 	MapData* getCurrentMap();
+	gw2::coordinate calculatePos();
+
 private:
 	MapData* currentMap;
 };

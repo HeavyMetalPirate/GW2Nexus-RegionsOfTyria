@@ -13,6 +13,8 @@ public:
 	void preRender(ImGuiIO& io);
 	void render();
 	void postRender(ImGuiIO& io);
+
+	void changeCurrentCharacter(std::string currentCharacter);
 	void unload();
 };
 

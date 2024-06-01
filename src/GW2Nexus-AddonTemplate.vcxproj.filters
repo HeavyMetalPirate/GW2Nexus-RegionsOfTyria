@@ -14,6 +14,7 @@
     <ClCompile Include="imgui\imgui_widgets.cpp" />
     <ClCompile Include="imgui\imgui_impl_dx11.cpp" />
     <ClCompile Include="imgui\imgui_impl_win32.cpp" />
+    <ClCompile Include="service\WorldInventory.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="nexus\Nexus.h" />
@@ -22,7 +23,6 @@
     <ClInclude Include="Globals.h" />
     <ClInclude Include="service\AddonRenderer.h" />
     <ClInclude Include="service\MapLoaderService.h" />
-    <ClInclude Include="httplib\httplib.h" />
     <ClInclude Include="service\MapInventory.h" />
     <ClInclude Include="entity\GW2API_Continents.h" />
     <ClInclude Include="resource.h" />
@@ -39,6 +39,10 @@
     <ClInclude Include="imgui\imgui_impl_dx11.h" />
     <ClInclude Include="imgui\imgui_impl_win32.h" />
     <ClInclude Include="Settings.h" />
+    <ClInclude Include="service\HttpClient.h" />
+    <ClInclude Include="entity\GW2API_Worlds.h" />
+    <ClInclude Include="service\WorldInventory.h" />
+    <ClInclude Include="entity\GW2API_WvW.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="imgui">

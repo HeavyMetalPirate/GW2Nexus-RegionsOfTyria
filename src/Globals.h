@@ -19,6 +19,7 @@
 #include <map>
 #include <chrono>
 #include <numeric>
+#include <math.h>
 
 #include "imgui/imgui.h"
 #include "nexus/Nexus.h"
@@ -27,6 +28,8 @@
 #include "Constants.h"
 #include "Settings.h"
 #include "service/MapInventory.h"
+#include "service/WorldInventory.h"
+#include "entity/GW2API_WvW.h"
 
 extern HMODULE hSelf;
 extern AddonAPI* APIDefs;
@@ -34,6 +37,8 @@ extern Mumble::Data* MumbleLink;
 extern NexusLinkData* NexusLink;
 
 extern MapInventory* mapInventory;
+extern WorldInventory* worldInventory;
+extern gw2api::wvw::match* match;
 
 extern bool unloading;
 

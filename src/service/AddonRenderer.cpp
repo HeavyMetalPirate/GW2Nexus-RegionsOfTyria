@@ -24,9 +24,18 @@ float opacity = 0.0f;
 CurrentMapService currentMapService = CurrentMapService();
 int currentSectorId = -1;
 int currentMapId = -1;
+std::string currentCharacter = "";
 
 Renderer::Renderer() {}
 Renderer::~Renderer() {}
+
+void Renderer::changeCurrentCharacter(std::string c) {
+	if (currentCharacter != c) {
+		currentCharacter = c;
+		currentSectorId = -1;
+		currentMapId = -1;
+	}
+}
 
 void Renderer::unload() {
 	unloading = true;
@@ -243,9 +252,7 @@ void renderSectorInfo() {
 			while (animating) {
 				std::this_thread::sleep_for(std::chrono::milliseconds(1));
 			}
-			//APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, "Animation cancelled successfully.");
 		}
-		//APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, "Starting new animation thread.");
 		cancelAnimation = false;
 		animationThread = std::thread(fade);
 		animationThread.detach();		
@@ -272,9 +279,6 @@ void renderInfo(std::string continent, std::string region, std::string map, std:
 		ImGuiWindowFlags_NoMouseInputs))
 	{
 		// Figure out the texts to display based on the templates provided
-		// TODO FIXME if displayFormatSmall or Large are empty, revert to a default?
-		// maybe only if both are empty because I could for example want the small text be empty?
-		// maybe also only for largeText. gonna ponder over this.
 		std::string smallText = std::string(settings.displayFormatSmall);
 		// Before anyone flames me for not doing lower/upper case here: the display format might have user defined text that shouldn't be casted
 		// and I am way too lazy to parse only my placeholders to u/lcase.
@@ -298,6 +302,35 @@ void renderInfo(std::string continent, std::string region, std::string map, std:
 		replaceAll(largeText, "@M", map);
 		replaceAll(largeText, "@s", sector);
 		replaceAll(largeText, "@S", sector);
+
+		// Replace WvW Team placeholders
+		// guess what? still to lazy to do it properly. what is maintenance, right?
+		std::string redTeamText, blueTeamText, greenTeamText;
+		redTeamText = "Red";
+		blueTeamText = "Blue";
+		greenTeamText = "Green";
+		if (match != nullptr) {
+			gw2api::worlds::world* redWorld = worldInventory->getWorld(GetLocaleAsString(settings.locale), match->worlds.red);
+			if (redWorld != nullptr) {
+				redTeamText = redWorld->name;
+			}
+
+			gw2api::worlds::world* blueWorld = worldInventory->getWorld(GetLocaleAsString(settings.locale), match->worlds.blue);
+			if (blueWorld != nullptr) {
+				blueTeamText = blueWorld->name;
+			}
+			
+			gw2api::worlds::world* greenWorld = worldInventory->getWorld(GetLocaleAsString(settings.locale), match->worlds.green);
+			if (greenWorld != nullptr) {
+				greenTeamText = greenWorld->name;
+			}
+		}
+		replaceAll(smallText, redTeam, redTeamText);
+		replaceAll(smallText, blueTeam, blueTeamText);
+		replaceAll(smallText, greenTeam, greenTeamText);
+		replaceAll(largeText, redTeam, redTeamText);
+		replaceAll(largeText, blueTeam, blueTeamText);
+		replaceAll(largeText, greenTeam, greenTeamText);
 
 		// Large Text - change scale just for this
 		ImFont* font = (ImFont*)NexusLink->FontBig;
@@ -384,7 +417,11 @@ void renderDebugInfo() {
 
 		ImGui::Text("Player information");
 		ImGui::Text(("GlobalX: " + std::to_string(MumbleLink->Context.Compass.PlayerPosition.X)).c_str());
-		ImGui::Text(("GlobalY: " + std::to_string(MumbleLink->Context.Compass.PlayerPosition.X)).c_str());
+		ImGui::Text(("GlobalY: " + std::to_string(MumbleLink->Context.Compass.PlayerPosition.Y)).c_str());
+
+		gw2::coordinate calcPos = currentMapService.calculatePos();
+		ImGui::Text(("CalculatedX: " + std::to_string(calcPos.x)).c_str());
+		ImGui::Text(("CalculatedY: " + std::to_string(calcPos.y)).c_str());
 
 		ImGui::Separator();
 		ImGui::Text("Mumble Information");
@@ -433,6 +470,43 @@ void renderDebugInfo() {
 				}
 			}
 		}
+		ImGui::Separator();
+		if (ImGui::CollapsingHeader("WvW Match Data", ImGuiTreeNodeFlags_DefaultOpen)) {
+			if (match == nullptr) {
+				ImGui::TextColored(ImVec4(255, 0, 0, 1), "No match data loaded!");
+			}
+			else {
+				ImGui::Text(("Id: " + match->id).c_str());
+				gw2api::worlds::world* red = worldInventory->getWorld(GetLocaleAsString(settings.locale), match->worlds.red);
+				gw2api::worlds::world* blue = worldInventory->getWorld(GetLocaleAsString(settings.locale), match->worlds.blue);
+				gw2api::worlds::world* green = worldInventory->getWorld(GetLocaleAsString(settings.locale), match->worlds.green);
+
+				ImGui::Text(("Red world: " + std::to_string(match->worlds.red)).c_str());
+				if (red == nullptr) {
+					ImGui::TextColored(ImVec4(255, 0, 0, 1), "Red Team unknown!");
+				}
+				else {
+					ImGui::Text(red->name.c_str());
+				}
+
+				ImGui::Text(("Blue world: " + std::to_string(match->worlds.blue)).c_str());
+				if (blue == nullptr) {
+					ImGui::TextColored(ImVec4(255, 0, 0, 1), "Blue Team unknown!");
+				}
+				else {
+					ImGui::Text(blue->name.c_str());
+				}
+
+				ImGui::Text(("Green world: " + std::to_string(match->worlds.green)).c_str());
+				if (green == nullptr) {
+					ImGui::TextColored(ImVec4(255, 0, 0, 1), "Green Team unknown!");
+				}
+				else {
+					ImGui::Text(green->name.c_str());
+				}
+			}
+		}
+
 		ImGui::PopFont();
 	
 		ImGui::Separator();
@@ -463,3 +537,4 @@ void renderDebugInfo() {
 	}
 	ImGui::End();
 }
+

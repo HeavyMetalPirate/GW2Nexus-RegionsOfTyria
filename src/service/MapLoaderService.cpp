@@ -1,14 +1,9 @@
-// This define is disabled delibarately right now, because using OpenSSL statically linked with yhirose/cpp-httlib breaks unloading
-// https://discord.com/channels/410828272679518241/917239829664788571/1240682494161059850
-// #define CPPHTTPLIB_OPENSSL_SUPPORT
 #include "MapLoaderService.h"
 #include <Windows.h>
 #include "../resource.h"
 
 #include "../ziplib/src/zip.h"
-
-// HTTPLib Client
-const std::string baseUrl = "https://api.guildwars2.com";
+#include "HttpClient.h"
 
 int timeoutCounter = 0;
 int retryCounter = 0;
@@ -43,30 +38,89 @@ void MapLoaderService::unload() {
 /// </summary>
 /// <param name="uri">uri to be requested</param>
 /// <returns>Result of the call, or nullptr in case of a timeout on the client</returns>
-/*httplib::Result MapLoaderService::performRequest(std::string uri) {
-	httplib::Client cli(baseUrl);
-	auto res = cli.Get(uri);
+std::string MapLoaderService::performRequest(std::string uri) {	
+	std::string requestUri = baseUrl + uri;
+	std::string response = HTTPClient::GetRequest(requestUri);
 
-	while (res == nullptr) {
-		if (this->unloading) return res;
-		timeoutCounter++;
-		retryCounter++;
-		// if we retried a lot and always had a timeout, stop doing that now
-		if (retryCounter > 10) break;
-
-		res = cli.Get(uri);
+	int retry = 1;
+	while (response.empty() && retry < 10) {
+		if (unloading) break;
+		retry++;
+		response = HTTPClient::GetRequest(requestUri);
 	}
-	return res;
-}*/
+#ifndef NDEBUG
+	APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, ("Fetched result for " + uri + " after " + std::to_string(retry) + " attempts.").c_str());
+#endif
+	return response;
+}
 
 void MapLoaderService::initializeMapStorage() {
 	if (!initializerThread.joinable()) {
 		// Move a newly constructed thread to the class member.
 		initializerThread = std::thread([&] {
+			// Preload some data for WvW maps...
+			// Load data for worlds
+			loadWorldsFromAPI();
+			// Load data from WvW matches
+			loadWvWMatchFromAPI();
+			// Preload from storage to save time
 			loadAllMapsFromStorage();
+			// Update from API in case the preloaded data was incomplete
+			// This is a longer operation, potentially up to 15 minutes depending on how responsive the API is
+			// or could be done in 10 seconds if the API is like super fast? Woah.
+			loadAllMapsFromApi(); 
 		});
 	}
 
+}
+
+void MapLoaderService::loadWorldsFromAPI() {
+	for (auto lang : SUPPORTED_LOCAL) {
+		std::string worldsResponse = performRequest("/v2/worlds?ids=all&lang=" + lang);
+		if (worldsResponse.empty()) {
+			APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Loading of Worlds data failed! Sector display in WvW may be incomplete!");
+			return;
+		}
+		json worldsJson = json::parse(worldsResponse);
+		std::vector<gw2api::worlds::world> worlds = worldsJson.get<std::vector <gw2api::worlds::world>>();
+
+		for (auto world : worlds)
+		{
+			gw2api::worlds::world* w = new gw2api::worlds::world(world);
+			worldInventory->addWorld(lang, w);
+		}
+	}
+}
+
+void MapLoaderService::loadWvWMatchFromAPI() {
+	// Mumble has a bug "right now" that displays shard id for world instead of the actual value...
+	// only way to get the right world is /v2/account but that requires providing an API key... 
+	// guess we will have fallbacks for a while.
+	int worldId = 0;
+	 if (settings.worldId != 0) {
+		worldId = settings.worldId;
+	}
+	// if world id hasn't been set until here, we won't complete it today I'm afraid.
+	if(worldId == 0) {
+		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Unknown world! Sector display in WvW may be incomplete!");
+		return;
+	}
+
+	std::string matchResponse = performRequest("/v2/wvw/matches?world=" + std::to_string(worldId));
+	if (matchResponse.empty()) {
+		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Loading of WvW matchup data failed! Sector display in WvW may be incomplete!");
+		return;
+	}
+	try {
+		json matchJson = json::parse(matchResponse);
+		gw2api::wvw::match m = matchJson;
+		// into globals with you!
+		match = new gw2api::wvw::match(m);
+		APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, ("Loaded match: " + match->id).c_str());
+	}
+	catch (...) {
+		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Error parsing WvW match data.");
+	}
 }
 
 void MapLoaderService::unpackMaps() {
@@ -149,7 +203,7 @@ void MapLoaderService::loadAllMapsFromStorage() {
 				APIDefs->Log(ELogLevel::ELogLevel_CRITICAL, ADDON_NAME, message.c_str());
 
 				// Suppress the warning for the unused variable 'e'
-#pragma warning(suppress: 4101)
+				#pragma warning(suppress: 4101)
 				e;
 			}
 		}
@@ -194,83 +248,115 @@ void MapLoaderService::loadAllMapsFromStorage() {
 	catch (...) {
 		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Unknown exception in map initialization thread.");
 	}
-	APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, "Map loading complete.");
+	APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, "Map loading from storage complete.");
 }
 
 /// <summary>
 /// Loads all maps from GW2 API and stores them in the mapInventory.
 /// </summary>
 void MapLoaderService::loadAllMapsFromApi() {
-	/*for (auto lang : SUPPORTED_LOCAL) {
-		std::map<std::string, gw2::map*> mapInfos = std::map<std::string, gw2::map*>();
+	APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, "Preloading map data from GW2 API.");
+	for (auto lang : SUPPORTED_LOCAL) {
+		APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, ("Loading maps for locale: " + lang).c_str());
+		std::map<std::string, gw2::map> mapInfos = std::map<std::string, gw2::map>();
 
 		auto continentsResponse = performRequest("/v2/continents?lang=" + lang);
-		if (continentsResponse == nullptr) {
-			APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Could not request map data within retry limits!");
+		if (continentsResponse.empty()) {
+			APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Could not request continents data within retry limits!");
 			return;
 		}
-		json continentsJson = json::parse(continentsResponse->body);
+		json continentsJson = json::parse(continentsResponse);
 
 		for (auto continent : continentsJson.get<std::vector<int>>()) {
-			APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, ("Requesting data from continent " + std::to_string(continent)).c_str());
+			if (unloading) break;
 			auto continentResponse = performRequest("/v2/continents/" + std::to_string(continent) + "?lang=" + lang);
-			if (continentResponse == nullptr) {
-				APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Could not request map data within retry limits!");
+			if (continentResponse.empty()) {
+				APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Could not request floor data within retry limits!");
 				return;
 			}
 
-			json continentJson = json::parse(continentResponse->body);
+			json continentJson = json::parse(continentResponse);
 
 			for (auto floor : continentJson["floors"].get<std::vector<int>>()) {
-				APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, ("Requesting data from floor " + std::to_string(floor)).c_str());
+				if (unloading) break;
 				auto floorResponse = performRequest("/v2/continents/" + std::to_string(continent) + "/floors/" + std::to_string(floor) + "?lang=" + lang);
-				if (floorResponse == nullptr) {
-					APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Could not request map data within retry limits!");
+				if (floorResponse.empty()) {
+					APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Could not request region data within retry limits!");
 					return;
 				}
 
-				json floorJson = json::parse(floorResponse->body);
+				json floorJson = json::parse(floorResponse);
 
 				gw2api::continents::floor floor = floorJson.get< gw2api::continents::floor>();
 				if (floor.regions.size() == 0) {
-					APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, "Empty floor detected");
+					// empty floor, skip
 					continue;
 				}
 
 				// for every region, for every map create a MapInfo*
-				for (auto region : floor.regions)
+				for (auto region: floor.regions)
 				{
-					for (auto entry : region.second.maps) {
+					for (auto entry: region.second.maps) {
 						std::string id = entry.first;
 						gw2api::continents::map* map = &entry.second;
 
-						gw2::map* mapInfo;
+						gw2api::continents::map mapInfo;
+
 						if (mapInfos.count(id)) {
 							mapInfo = mapInfos[id];
 						}
 						else {
-							mapInfo = new gw2::map(*map);
-
-							APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, ("New Map: " + map->name).c_str());
+							mapInfo = *map;
+							// enrich with additional data
+							mapInfo.continentId = continentJson["id"];
+							mapInfo.continentName = continentJson["name"];
+							mapInfo.regionId = region.second.id;
+							mapInfo.regionName = region.second.name;
+							// end enrichment
 							mapInfos.emplace(id, mapInfo);
 						}
-						for (auto sector : map->sectors)
+
+						for (auto sector: map->sectors)
 						{
-							mapInfo->sectors.emplace(sector.first, sector.second);
+							mapInfo.sectors.emplace(sector);
 						}
 					}
 				}
 			}
 		}
 
-		// TODO we could possibly store the data in our temp storage here too... just a thought.
-		// if we do the above, we absolutely wanna save a timestamp with that info however, so we can decide when it's time to update the cache
+		// precautionary if we made it here without unloading, store the map data
+		if (unloading) return;
+
+		// fill up empty maps with default sectors
+		for (auto map: mapInfos)
+		{
+			// add default sector to maps without sectors
+			if (map.second.sectors.size() == 0) {
+				gw2api::continents::sector empty = gw2api::continents::sector();
+				empty.id = -1;
+				empty.name = map.second.name;
+				empty.level = 80;
+				empty.chatLink = "undefined";
+				empty.bounds.push_back({ std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest() });
+				empty.bounds.push_back({ std::numeric_limits<float>::max(), std::numeric_limits<float>::max() });
+				map.second.sectors.emplace("-1", empty);
+			}
+		}
 
 		// add all maps found to the inventory
 		for (auto map : mapInfos) {
-			mapInventory->addMap(lang, map.second);
+			gw2::map* m = new gw2::map(map.second);
+			mapInventory->addMap(lang, m);
 		}
-	}*/
+
+		std::stringstream stream;
+		stream << "Maps for locale '" << lang << "' in inventory: " << std::to_string(mapInventory->getLoadedMaps(lang).size());
+		APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, stream.str().c_str());
+	
+
+	}
+	APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, "Map loading from API complete.");
 }
 
 /*

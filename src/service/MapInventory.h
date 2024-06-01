@@ -14,6 +14,8 @@ public:
 	gw2::map* getMapInfo(std::string locale, int id);
 	std::map<int, gw2::map*> getLoadedMaps(std::string locale);
 
+	bool isWvWMap(int id);
+
 private:
 	/// <summary>
 	/// Map with the loaded maps per locale

@@ -88,6 +88,10 @@ struct Settings {
     float spacing;
     float fontScale;
     float fontColor[3];
+
+    // required for WvW maps
+    int worldId;
+
 };
 inline void to_json(json& j, const Settings& settings) {
     j = json{
@@ -97,7 +101,8 @@ inline void to_json(json& j, const Settings& settings) {
         {"verticalPosition", settings.verticalPosition},
         {"spacing", settings.spacing},
         {"fontScale", settings.fontScale},
-        {"fontColor", settings.fontColor}
+        {"fontColor", settings.fontColor},
+        {"worldId", settings.worldId}
     };
 }
 inline void from_json(const json& j, Settings& settings) {
@@ -144,6 +149,12 @@ inline void from_json(const json& j, Settings& settings) {
         settings.fontColor[0] = 255.0f;
         settings.fontColor[1] = 255.0f;
         settings.fontColor[2] = 255.0f;
+    }
+    if (j.contains("worldId")) {
+        j.at("worldId").get_to(settings.worldId);
+    }
+    else {
+        settings.worldId = 0;
     }
 }
 /// ================================================================================

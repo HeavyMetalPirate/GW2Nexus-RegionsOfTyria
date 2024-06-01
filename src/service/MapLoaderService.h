@@ -1,7 +1,6 @@
 #ifndef MAP_LOADER_SERVICE_H
 #define MAP_LOADER_SERVICE_H
-// NOTE: HTTPLIB NEEDS TO BE PUT BEFORE Windows.h!!
-//#include "httplib.h"
+
 #include <nlohmann/json.hpp>
 #include <filesystem>
 #include <fstream>
@@ -9,6 +8,8 @@
 
 #include "../Globals.h"
 #include "../entity/GW2API_Continents.h"
+#include "../entity/GW2API_Worlds.h"
+#include "../entity/GW2API_WvW.h"
 
 class MapLoaderService {
 public:
@@ -19,13 +20,22 @@ public:
 	/// Startup function to initialize the Map Inventory
 	/// </summary>
 	void initializeMapStorage();
+
+	/// <summary>
+	/// Loads WvW Match data from the API.
+	/// Requires either an API key or world Id set in the settings.
+	/// </summary>
+	void loadWvWMatchFromAPI();
+
 	void unload();
 private:
-	//httplib::Result performRequest(std::string uri);
+	std::string performRequest(std::string uri);
 
 	void loadAllMapsFromApi();
 	void loadAllMapsFromStorage();
 	void unpackMaps();
+
+	void loadWorldsFromAPI();
 };
 
 #endif /* MAP_LOADER_SERVICE_H */
