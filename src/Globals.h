@@ -20,6 +20,8 @@
 #include <chrono>
 #include <numeric>
 #include <math.h>
+#include <filesystem>
+#include <fstream>
 
 #include "imgui/imgui.h"
 #include "nexus/Nexus.h"
@@ -30,6 +32,8 @@
 #include "service/MapInventory.h"
 #include "service/WorldInventory.h"
 #include "entity/GW2API_WvW.h"
+
+namespace fs = std::filesystem;
 
 extern HMODULE hSelf;
 extern AddonAPI* APIDefs;
@@ -50,5 +54,23 @@ inline void replaceAll(std::string& str, const std::string& from, const std::str
 		startPos += to.length(); // Move past the replaced substring
 	}
 }
+inline std::string getAddonFolder() {
+	std::string pathFolder = APIDefs->GetAddonDirectory(ADDON_NAME);
+	// Create folder if not exist
+	if (!fs::exists(pathFolder)) {
+		try {
+			fs::create_directory(pathFolder);
+		}
+		catch (const std::exception& e) {
+			std::string message = "Could not create addon directory: ";
+			message.append(pathFolder);
+			APIDefs->Log(ELogLevel::ELogLevel_CRITICAL, ADDON_NAME, message.c_str());
 
+			// Suppress the warning for the unused variable 'e'
+#pragma warning(suppress: 4101)
+			e;
+		}
+	}
+	return pathFolder;
+}
 #endif // GLOBALS_H

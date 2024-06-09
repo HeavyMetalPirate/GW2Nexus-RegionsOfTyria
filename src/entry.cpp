@@ -52,7 +52,7 @@ bool unloading = false;
 
 /* settings */
 bool showDebug = false;
-bool showTemplate = false;
+bool showTemplate[6] = { false, false, false, false, false, false };
 int templateRace = 0;
 bool showServerSelection = false;
 
@@ -60,9 +60,12 @@ bool showServerSelection = false;
 std::string characterName = "";
 
 Settings settings = {
-	Locale::En,
-	{},
-	-1,
+	Locale::En, // localse
+	{}, // racialFonts
+	-1, // wvw world
+	0, // fontMode
+	false, // disableAnimations
+	// deprecated Legacy settings
 	"@c | @r | @m",
 	"@s",
 	300.0f,
@@ -74,6 +77,8 @@ Settings settings = {
 // local temps
 char displayFormatSmallBuffer[100] = "";
 char displayFormatLargeBuffer[100] = "";
+
+std::mutex identityMutex;
 
 /* services */
 Renderer renderer;
@@ -371,18 +376,34 @@ void AddonOptions()
 	}
 
 	ImGui::Separator();
-
 	ImGui::Text("Display & Styling");
+
+	static const char* comboBoxItems[7];
+	comboBoxItems[0] = "Use font depending on race";
+	for (int i = 0; i < 6; i++) {
+		std::string text = "Use font '" + settings.fontSettings[i].race + "' everywhere";
+		comboBoxItems[i + 1] = text.c_str();
+	}
+
+	if (ImGui::Combo("##combo", &settings.fontMode, comboBoxItems, IM_ARRAYSIZE(comboBoxItems))) {
+		renderer.updateFontSettings();
+	}
+	ImGui::Checkbox("Disable animations", &settings.disableAnimations);
+
 	ImGui::Text("Placeholders: @c = Continent, @r = Region, @m = Map, @s = Sector");
-	// TODO settings for "use just one racial font because it's cool" or "use generic font / disable racials"
-	// or "disable animations" (wow toxic)
 	if (ImGui::BeginTabBar("##Tabs")) {
-		int i = 0; // counter variable for templateRace index
+		int i = -1; // counter variable for templateRace index
 		for (auto& settings : settings.fontSettings) {
+			++i;
 			if (ImGui::BeginTabItem(settings.race.c_str())) {
 
-				if (ImGui::Checkbox("Show sample text", &showTemplate)) { // TODO maybe move this to the tabs and have the sample text be displayed for that font style
-					templateRace = i;
+				if (ImGui::Checkbox("Show sample text", &showTemplate[i])) {
+					if (showTemplate[i]) {
+						// Uncheck all other checkboxes
+						for (int j = 0; j < 6; ++j) {
+							if (j != i) showTemplate[j] = false;
+						}
+					}
 				}
 
 				char bufferSmall[256];
@@ -407,7 +428,7 @@ void AddonOptions()
 				ImGui::InputFloat("Large Font Size", &settings.largeFontSize);
 
 				ImGui::EndTabItem();
-				i++;
+				
 			}
 		}
 		ImGui::EndTabBar();
@@ -500,6 +521,8 @@ void ProcessKeybind(const char* aIdentifier)
 }
 
 void HandleIdentityChanged(void* anEventArgs) {
+	std::lock_guard<std::mutex> lock(identityMutex); // Ensures single-thread access
+
 	Mumble::Identity* identity = (Mumble::Identity*)anEventArgs;
 	if (identity->Name != characterName.c_str()) {
 		characterName = std::string(identity->Name);
@@ -521,10 +544,8 @@ void LoadSettings() {
 			json jsonData;
 			dataFile >> jsonData;
 			dataFile.close();
-
+			// parse settings, yay
 			settings = jsonData;
-			settings.displayFormatSmall.copy(displayFormatSmallBuffer, 100);
-			settings.displayFormatLarge.copy(displayFormatLargeBuffer, 100);
 		}
 	}
 	else {
@@ -545,24 +566,4 @@ void StoreSettings() {
 	else {
 		APIDefs->Log(ELogLevel_WARNING, ADDON_NAME, "Could not store default settings.json - configuration might get lost between loads.");
 	}
-}
-
-std::string getAddonFolder() {
-	std::string pathFolder = APIDefs->GetAddonDirectory(ADDON_NAME);
-	// Create folder if not exist
-	if (!fs::exists(pathFolder)) {
-		try {
-			fs::create_directory(pathFolder);
-		}
-		catch (const std::exception& e) {
-			std::string message = "Could not create addon directory: ";
-			message.append(pathFolder);
-			APIDefs->Log(ELogLevel::ELogLevel_CRITICAL, ADDON_NAME, message.c_str());
-
-			// Suppress the warning for the unused variable 'e'
-			#pragma warning(suppress: 4101)
-			e;
-		}
-	}
-	return pathFolder;
 }

@@ -11,8 +11,6 @@ int retryCounter = 0;
 // if I put this as a class field I am getting weird "use of deleted function" errors? wtf.
 std::thread initializerThread;
 
-namespace fs = std::filesystem;
-
 static int on_extract_entry(const char* filename, void* arg) {
 	static int i = 0;
 	int n = *(int*)arg;

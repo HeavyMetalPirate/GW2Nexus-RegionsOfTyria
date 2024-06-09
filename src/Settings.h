@@ -174,6 +174,8 @@ struct Settings {
     int worldId;
 
     // TODO settings for font overrides / modes i.e. "use racial fonts", "use just font of race X or generic font" etc.
+    int fontMode;
+    bool disableAnimations;
 
     // legacy display settings, deprecated
     std::string displayFormatSmall;
@@ -187,13 +189,9 @@ struct Settings {
 inline void to_json(json& j, const Settings& settings) {
     j = json{
         {"locale", settings.locale},
-        {"displayFormatSmall", settings.displayFormatSmall},
-        {"displayFormatLarge", settings.displayFormatLarge},
-        {"verticalPosition", settings.verticalPosition},
-        {"spacing", settings.spacing},
-        {"fontScale", settings.fontScale},
-        {"fontColor", settings.fontColor},
         {"worldId", settings.worldId},
+        {"fontMode", settings.fontMode},
+        {"disableAnimations", settings.disableAnimations},
         {"fontSettings", settings.fontSettings}
     };
 }
@@ -248,6 +246,18 @@ inline void from_json(const json& j, Settings& settings) {
     else {
         settings.worldId = 0;
     }
+    if (j.contains("fontMode")) {
+        j.at("fontMode").get_to(settings.fontMode);
+    }
+    else {
+        settings.fontMode = 0;
+    }
+    if (j.contains("disableAnimations")) {
+        j.at("disableAnimations").get_to(settings.disableAnimations);
+    }
+    else {
+        settings.disableAnimations = false;
+    }
     if (j.contains("fontSettings")) {
         j.at("fontSettings").get_to(settings.fontSettings);
     }
@@ -279,7 +289,7 @@ inline void from_json(const json& j, Settings& settings) {
 
 // Non stored settings
 extern bool showDebug;
-extern bool showTemplate;
+extern bool showTemplate[6];
 extern int templateRace;
 
 // Stored settings

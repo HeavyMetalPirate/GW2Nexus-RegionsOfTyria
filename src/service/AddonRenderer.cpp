@@ -57,6 +57,11 @@ void Renderer::registerFont(std::string name, ImFont* font) {
 	fonts.emplace(name, font);
 }
 
+void Renderer::updateFontSettings() {
+	// update wrapper so the options dialog does not need knowledge about currentRace
+	setRacialFont(currentRace);
+}
+
 void Renderer::setGenericFont() {
 	fontSettings = &settings.fontSettings[0];
 	fontLarge = (ImFont*)NexusLink->FontBig;
@@ -72,8 +77,11 @@ void Renderer::setRacialFont(Mumble::ERace race) {
 	// if we haven't been supplied with fonts leave here to avoid nullpointers
 	if (this->fonts.empty()) { return; }
 
-	// TODO maybe refactor this a little because accessing fonts before they are delivered will put nullptrs here
-	if (race == Mumble::ERace::Asura) {
+	if (settings.fontMode == 1) {
+		setGenericFont();
+	}
+	// if fontmode == 0 => pick font according to race; else fontmode tells us which race the user wants, starting with 2 = asura to 6 = sylvari
+	else if ((settings.fontMode == 0 && race == Mumble::ERace::Asura) || settings.fontMode == 2) {
 		fontLarge = this->fonts[fontNameAsuraLarge];
 		fontSmall = this->fonts[fontNameAsuraSmall];
 
@@ -82,7 +90,7 @@ void Renderer::setRacialFont(Mumble::ERace race) {
 
 		fontSettings = &settings.fontSettings[1];
 	}
-	else if (race == Mumble::ERace::Charr) {
+	else if ((settings.fontMode == 0 && race == Mumble::ERace::Charr) || settings.fontMode == 3) {
 		fontLarge = this->fonts[fontNameCharrLarge];
 		fontSmall = this->fonts[fontNameCharrSmall];
 
@@ -91,7 +99,7 @@ void Renderer::setRacialFont(Mumble::ERace race) {
 
 		fontSettings = &settings.fontSettings[2];
 	}
-	else if (race == Mumble::ERace::Human) {
+	else if ((settings.fontMode == 0 && race == Mumble::ERace::Human) || settings.fontMode == 4) {
 		fontLarge = this->fonts[fontNameHumanLarge];
 		fontSmall = this->fonts[fontNameHumanSmall];
 
@@ -100,7 +108,7 @@ void Renderer::setRacialFont(Mumble::ERace race) {
 		
 		fontSettings = &settings.fontSettings[3];
 	}
-	else if (race == Mumble::ERace::Norn) {
+	else if ((settings.fontMode == 0 && race == Mumble::ERace::Norn) || settings.fontMode == 5) {
 		fontLarge = this->fonts[fontNameNornLarge];
 		fontSmall = this->fonts[fontNameNornSmall];
 
@@ -109,7 +117,7 @@ void Renderer::setRacialFont(Mumble::ERace race) {
 
 		fontSettings = &settings.fontSettings[4];
 	}
-	else if (race == Mumble::ERace::Sylvari) {
+	else if ((settings.fontMode == 0 && race == Mumble::ERace::Sylvari) || settings.fontMode == 6) {
 		fontLarge = this->fonts[fontNameSylvariLarge];
 		fontSmall = this->fonts[fontNameSylvariSmall];
 
@@ -150,13 +158,23 @@ void Renderer::render() {
 }
 
 void Renderer::renderSampleInfo() {
-	if (!showTemplate) return;
+	bool renderSample = false;
+	int raceIndex = 0;
+	for (int i = 0; i < 6; i++) {
+		if (showTemplate[i]) {
+			raceIndex = i;
+			renderSample = true;
+			break;
+		}
+	}
+	
+	if (!renderSample) return;
 
 	// Store current race
 	Mumble::ERace originalPick = currentRace;
 
 	// switch to template race set by options dialog
-	switch (templateRace) {
+	switch (raceIndex) {
 		case 0: setGenericFont(); break;
 		case 1: setRacialFont(Mumble::ERace::Asura); break;
 		case 2: setRacialFont(Mumble::ERace::Charr); break;
@@ -475,6 +493,11 @@ void Renderer::renderDebugInfo() {
 void Renderer::renderTextAnimation(const char* text, float opacityOverride, bool large, bool isShadow) {
 	ImFont* main = large ? fontLarge : fontSmall;
 	ImFont* secondary = large ? fontAnimLarge : fontAnimSmall;
+
+	if (settings.disableAnimations) {
+		secondary = main; // :(
+	}
+
 	ImVec4 color = ImVec4(fontSettings->fontColor[0], fontSettings->fontColor[1], fontSettings->fontColor[2], opacityOverride);
 	ImVec4 shadow = ImVec4(0, 0, 0, opacityOverride);
 
