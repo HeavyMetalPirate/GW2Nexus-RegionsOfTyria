@@ -24,6 +24,7 @@ int currentSectorId = -1;
 int currentMapId = -1;
 std::string currentCharacter = "";
 Mumble::ERace currentRace;
+RacialFontSettings* fontSettings = nullptr;
 bool fontsPicked;
 
 bool fontsLoaded = false;
@@ -49,13 +50,25 @@ void Renderer::unload() {
 }
 
 void Renderer::registerFont(std::string name, ImFont* font) {
+#ifndef NDEBUG
 	APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, ("Registering font: " + name).c_str());
 	APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, font->GetDebugName());
+#endif
 	fonts.emplace(name, font);
 }
 
+void Renderer::setGenericFont() {
+	fontSettings = &settings.fontSettings[0];
+	fontLarge = (ImFont*)NexusLink->FontBig;
+	fontSmall = (ImFont*)NexusLink->Font;
+	fontAnimLarge = (ImFont*)NexusLink->FontBig;
+	fontAnimSmall = (ImFont*)NexusLink->Font;
+}
+
 void Renderer::setRacialFont(Mumble::ERace race) {
+	// set default values
 	currentRace = Mumble::ERace::Asura;
+	setGenericFont(); // default to generic font
 	// if we haven't been supplied with fonts leave here to avoid nullpointers
 	if (this->fonts.empty()) { return; }
 
@@ -66,6 +79,8 @@ void Renderer::setRacialFont(Mumble::ERace race) {
 
 		fontAnimLarge = this->fonts[fontNameAsuraAnimLarge];
 		fontAnimSmall = this->fonts[fontNameAsuraAnimSmall];
+
+		fontSettings = &settings.fontSettings[1];
 	}
 	else if (race == Mumble::ERace::Charr) {
 		fontLarge = this->fonts[fontNameCharrLarge];
@@ -73,6 +88,8 @@ void Renderer::setRacialFont(Mumble::ERace race) {
 
 		fontAnimLarge = this->fonts[fontNameCharrAnimLarge];
 		fontAnimSmall = this->fonts[fontNameCharrAnimSmall];
+
+		fontSettings = &settings.fontSettings[2];
 	}
 	else if (race == Mumble::ERace::Human) {
 		fontLarge = this->fonts[fontNameHumanLarge];
@@ -80,6 +97,8 @@ void Renderer::setRacialFont(Mumble::ERace race) {
 
 		fontAnimLarge = this->fonts[fontNameHumanAnimLarge];
 		fontAnimSmall = this->fonts[fontNameHumanAnimSmall];
+		
+		fontSettings = &settings.fontSettings[3];
 	}
 	else if (race == Mumble::ERace::Norn) {
 		fontLarge = this->fonts[fontNameNornLarge];
@@ -87,6 +106,8 @@ void Renderer::setRacialFont(Mumble::ERace race) {
 
 		fontAnimLarge = this->fonts[fontNameNornAnimLarge];
 		fontAnimSmall = this->fonts[fontNameNornAnimSmall];
+
+		fontSettings = &settings.fontSettings[4];
 	}
 	else if (race == Mumble::ERace::Sylvari) {
 		fontLarge = this->fonts[fontNameSylvariLarge];
@@ -94,8 +115,11 @@ void Renderer::setRacialFont(Mumble::ERace race) {
 
 		fontAnimLarge = this->fonts[fontNameSylvariAnimLarge];
 		fontAnimSmall = this->fonts[fontNameSylvariAnimSmall];
+
+		fontSettings = &settings.fontSettings[5];
 	}
 
+#ifndef NDEBUG
 	if(fontLarge != nullptr) 
 		APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, ("FontLarge: " + std::string(fontLarge->GetDebugName())).c_str());
 	if(fontSmall != nullptr)
@@ -104,6 +128,7 @@ void Renderer::setRacialFont(Mumble::ERace race) {
 		APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, ("FontAnimLarge: " + std::string(fontAnimLarge->GetDebugName())).c_str());
 	if(fontAnimSmall != nullptr) 
 		APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, ("FontAnimSmall: " + std::string(fontAnimSmall->GetDebugName())).c_str());
+#endif
 
 	fontsPicked = true;
 	currentRace = race;
@@ -126,7 +151,25 @@ void Renderer::render() {
 
 void Renderer::renderSampleInfo() {
 	if (!showTemplate) return;
+
+	// Store current race
+	Mumble::ERace originalPick = currentRace;
+
+	// switch to template race set by options dialog
+	switch (templateRace) {
+		case 0: setGenericFont(); break;
+		case 1: setRacialFont(Mumble::ERace::Asura); break;
+		case 2: setRacialFont(Mumble::ERace::Charr); break;
+		case 3: setRacialFont(Mumble::ERace::Human); break;
+		case 4: setRacialFont(Mumble::ERace::Norn); break;
+		case 5: setRacialFont(Mumble::ERace::Sylvari); break;
+		default: setGenericFont();
+	}
+	// render info with generic texts
 	renderInfo("Continent", "Region", "Map", "Sector", 1.0f);
+
+	// reset to the originalPick
+	setRacialFont(originalPick);
 }
 
 void Renderer::renderSectorInfo() {
@@ -179,7 +222,7 @@ void Renderer::renderInfo(std::string continent, std::string region, std::string
 		ImGuiWindowFlags_NoMouseInputs))
 	{
 		// Figure out the texts to display based on the templates provided
-		std::string smallText = std::string(settings.displayFormatSmall);
+		std::string smallText = std::string(fontSettings->displayFormatSmall);
 		// Before anyone flames me for not doing lower/upper case here: the display format might have user defined text that shouldn't be casted
 		// and I am way too lazy to parse only my placeholders to u/lcase.
 		replaceAll(smallText, "@c", continent);
@@ -191,7 +234,7 @@ void Renderer::renderInfo(std::string continent, std::string region, std::string
 		replaceAll(smallText, "@s", sector);
 		replaceAll(smallText, "@S", sector);
 
-		std::string largeText = std::string(settings.displayFormatLarge);
+		std::string largeText = std::string(fontSettings->displayFormatLarge);
 		if (largeText.empty()) largeText = "@s"; // default if empty
 		// See reasoning above. Still too lazy, nothing has changed in the past 5 or so seconds.
 		replaceAll(largeText, "@c", continent);
@@ -274,18 +317,18 @@ void Renderer::renderInfo(std::string continent, std::string region, std::string
 		// Large Text - change scale just for this
 		float originalFontScale = fontLarge->Scale;
 		float originalFontAnimScale = fontAnimLarge->Scale;
-		fontLarge->Scale = settings.fontScale;
-		fontAnimLarge->Scale = settings.fontScale;
-		centerText(largeText, settings.verticalPosition, opacityOverride);
+		fontLarge->Scale = fontSettings->fontScale;
+		fontAnimLarge->Scale = fontSettings->fontScale;
+		centerText(largeText, fontSettings->verticalPosition, opacityOverride);
 		fontLarge->Scale = originalFontScale;
 		fontAnimLarge->Scale = originalFontAnimScale;
 
 		// Small Text
 		originalFontScale = fontSmall->Scale;
 		originalFontAnimScale = fontAnimSmall->Scale;
-		fontSmall->Scale = (settings.fontScale); 
-		fontAnimSmall->Scale = (settings.fontScale); 
-		centerTextSmall(smallText, settings.verticalPosition - settings.spacing, opacityOverride);
+		fontSmall->Scale = fontSettings->fontScale;
+		fontAnimSmall->Scale = fontSettings->fontScale;
+		centerTextSmall(smallText, fontSettings->verticalPosition - fontSettings->spacing, opacityOverride);
 		fontSmall->Scale = originalFontScale;
 		fontAnimSmall->Scale = originalFontAnimScale;
 	}
@@ -432,7 +475,7 @@ void Renderer::renderDebugInfo() {
 void Renderer::renderTextAnimation(const char* text, float opacityOverride, bool large, bool isShadow) {
 	ImFont* main = large ? fontLarge : fontSmall;
 	ImFont* secondary = large ? fontAnimLarge : fontAnimSmall;
-	ImVec4 color = ImVec4(settings.fontColor[0], settings.fontColor[1], settings.fontColor[2], opacityOverride);
+	ImVec4 color = ImVec4(fontSettings->fontColor[0], fontSettings->fontColor[1], fontSettings->fontColor[2], opacityOverride);
 	ImVec4 shadow = ImVec4(0, 0, 0, opacityOverride);
 
 	ImVec2 originalCursorPos = ImGui::GetCursorPos();
@@ -533,7 +576,9 @@ void fade() {
 	std::lock_guard<std::mutex> lock(animMutex); // Ensures single-thread access
 
 	if (animating) return; // we are already animating, so stop it now
-	//APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, "Animation started.");
+#ifndef NDEBUG
+	APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, "Animation started.");
+#endif
 	animating = true;
 	try {
 		// fade in
@@ -586,5 +631,7 @@ void fade() {
 	}
 	cancelAnimation = false;
 	animating = false;
-	//APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, "Animation thread complete.");
+#ifndef NDEBUG
+	APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, "Animation thread complete.");
+#endif
 }

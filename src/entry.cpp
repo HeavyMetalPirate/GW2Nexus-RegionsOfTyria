@@ -53,6 +53,7 @@ bool unloading = false;
 /* settings */
 bool showDebug = false;
 bool showTemplate = false;
+int templateRace = 0;
 bool showServerSelection = false;
 
 // local temps
@@ -372,14 +373,18 @@ void AddonOptions()
 	ImGui::Separator();
 
 	ImGui::Text("Display & Styling");
-	ImGui::Checkbox("Show sample text", &showTemplate); // TODO maybe move this to the tabs and have the sample text be displayed for that font style
 	ImGui::Text("Placeholders: @c = Continent, @r = Region, @m = Map, @s = Sector");
 	// TODO settings for "use just one racial font because it's cool" or "use generic font / disable racials"
 	// or "disable animations" (wow toxic)
 	if (ImGui::BeginTabBar("##Tabs")) {
+		int i = 0; // counter variable for templateRace index
 		for (auto& settings : settings.fontSettings) {
 			if (ImGui::BeginTabItem(settings.race.c_str())) {
-				
+
+				if (ImGui::Checkbox("Show sample text", &showTemplate)) { // TODO maybe move this to the tabs and have the sample text be displayed for that font style
+					templateRace = i;
+				}
+
 				char bufferSmall[256];
 				strncpy_s(bufferSmall, settings.displayFormatSmall.c_str(), sizeof(bufferSmall));
 				if (ImGui::InputText("Display Format Small", bufferSmall, sizeof(bufferSmall))) {
@@ -402,6 +407,7 @@ void AddonOptions()
 				ImGui::InputFloat("Large Font Size", &settings.largeFontSize);
 
 				ImGui::EndTabItem();
+				i++;
 			}
 		}
 		ImGui::EndTabBar();

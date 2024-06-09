@@ -173,7 +173,9 @@ struct Settings {
     // required for WvW maps
     int worldId;
 
-    // legacy display settings
+    // TODO settings for font overrides / modes i.e. "use racial fonts", "use just font of race X or generic font" etc.
+
+    // legacy display settings, deprecated
     std::string displayFormatSmall;
     std::string displayFormatLarge;
     float verticalPosition;
@@ -278,6 +280,7 @@ inline void from_json(const json& j, Settings& settings) {
 // Non stored settings
 extern bool showDebug;
 extern bool showTemplate;
+extern int templateRace;
 
 // Stored settings
 extern Settings settings;

@@ -16,6 +16,7 @@ public:
 
 	void registerFont(std::string name, ImFont* font);
 	void setRacialFont(Mumble::ERace race);
+	void setGenericFont();
 
 	void changeCurrentCharacter(std::string currentCharacter);
 	void unload();
