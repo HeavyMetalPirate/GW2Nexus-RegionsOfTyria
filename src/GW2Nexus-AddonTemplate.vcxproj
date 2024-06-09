@@ -196,6 +196,7 @@
     <ClInclude Include="imgui\imstb_truetype.h" />
     <ClInclude Include="mumble\Mumble.h" />
     <ClInclude Include="nexus\Nexus.h" />
+    <ClInclude Include="nexus\Nexus.h_old" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="service\AddonInitalize.h" />
     <ClInclude Include="service\AddonRenderer.h" />
@@ -242,9 +243,14 @@
     <None Include="zip1.bin" />
   </ItemGroup>
   <ItemGroup>
+    <Font Include="resources\animfont_asura.ttf" />
+    <Font Include="resources\animfont_charr.ttf" />
+    <Font Include="resources\animfont_human.ttf" />
+    <Font Include="resources\animfont_norn.ttf" />
+    <Font Include="resources\animfont_sylvari.ttf" />
     <Font Include="resources\mapfont_asura.ttf" />
     <Font Include="resources\mapfont_charr.ttf" />
-    <Font Include="resources\mapfont_human.otf" />
+    <Font Include="resources\mapfont_human.ttf" />
     <Font Include="resources\mapfont_norn.ttf" />
     <Font Include="resources\mapfont_sylvari.ttf" />
   </ItemGroup>

@@ -18,17 +18,22 @@
 #include <cstring> // For strcpy_s
 
 /* proto */
+
+// Addon loading
 void AddonLoad(AddonAPI* aApi);
 void AddonUnload();
+// Rendering
 void AddonRender();
 void AddonOptions();
 void AddonShortcut();
 void PreRender();
 void PostRender();
-
+// Fonts
+void ReceiveFont(const char* aIdentifier, void* aFont);
+// Keybinds
 void ProcessKeybind(const char* aIdentifer);
 void HandleIdentityChanged(void* anEventArgs);
-
+// Settings
 void LoadSettings();
 void StoreSettings();
 std::string getAddonFolder();
@@ -55,6 +60,8 @@ std::string characterName = "";
 
 Settings settings = {
 	Locale::En,
+	{},
+	-1,
 	"@c | @r | @m",
 	"@s",
 	300.0f,
@@ -149,13 +156,118 @@ void AddonLoad(AddonAPI* aApi)
 	// Start filling the inventory in the background
 	mapLoader.initializeMapStorage();
 
+	// Initialize the custom fonts
+	std::string pathFolder = APIDefs->GetAddonDirectory(ADDON_NAME);
+	APIDefs->AddFontFromFile("ROT_FONT_ASURA_SMALL", 20.0f, (pathFolder + "/font_asura.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->AddFontFromFile("ROT_FONT_ASURA_LARGE", 72.0f, (pathFolder + "/font_asura.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->AddFontFromFile("ROT_FONT_CHARR_SMALL", 20.0f, (pathFolder + "/font_charr.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->AddFontFromFile("ROT_FONT_CHARR_LARGE", 72.0f, (pathFolder + "/font_charr.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->AddFontFromFile("ROT_FONT_HUMAN_SMALL", 20.0f, (pathFolder + "/font_human.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->AddFontFromFile("ROT_FONT_HUMAN_LARGE", 72.0f, (pathFolder + "/font_human.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->AddFontFromFile("ROT_FONT_NORN_SMALL", 20.0f, (pathFolder + "/font_norn.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->AddFontFromFile("ROT_FONT_NORN_LARGE", 72.0f, (pathFolder + "/font_norn.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->AddFontFromFile("ROT_FONT_SYLVARI_SMALL", 20.0f, (pathFolder + "/font_sylvari_v2.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->AddFontFromFile("ROT_FONT_SYLVARI_LARGE", 72.0f, (pathFolder + "/font_sylvari_v2.ttf").c_str(), ReceiveFont, nullptr);
+	// animation fonts as well
+	APIDefs->AddFontFromFile("ROT_FONT_ASURA_ANIM_SMALL", 20.0f, (pathFolder + "/fonts_asura_anim.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->AddFontFromFile("ROT_FONT_ASURA_ANIM_LARGE", 72.0f, (pathFolder + "/fonts_asura_anim.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->AddFontFromFile("ROT_FONT_CHARR_ANIM_SMALL", 20.0f, (pathFolder + "/fonts_charr_anim.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->AddFontFromFile("ROT_FONT_CHARR_ANIM_LARGE", 72.0f, (pathFolder + "/fonts_charr_anim.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->AddFontFromFile("ROT_FONT_HUMAN_ANIM_SMALL", 20.0f, (pathFolder + "/fonts_human_anim.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->AddFontFromFile("ROT_FONT_HUMAN_ANIM_LARGE", 72.0f, (pathFolder + "/fonts_human_anim.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->AddFontFromFile("ROT_FONT_NORN_ANIM_SMALL", 20.0f, (pathFolder + "/fonts_norn_anim.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->AddFontFromFile("ROT_FONT_NORN_ANIM_LARGE", 72.0f, (pathFolder + "/fonts_norn_anim.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->AddFontFromFile("ROT_FONT_SYLVARI_ANIM_SMALL", 20.0f, (pathFolder + "/fonts_sylvari_anim.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->AddFontFromFile("ROT_FONT_SYLVARI_ANIM_LARGE", 72.0f, (pathFolder + "/fonts_sylvari_anim.ttf").c_str(), ReceiveFont, nullptr);
+
+
 	// Add an options window and a regular render callback - always do this at the end I guess
 	APIDefs->RegisterRender(ERenderType_PreRender, PreRender);
 	APIDefs->RegisterRender(ERenderType_PostRender, PostRender);
-	APIDefs->RegisterRender(ERenderType_Render, AddonRender);
 	APIDefs->RegisterRender(ERenderType_OptionsRender, AddonOptions);
+	APIDefs->RegisterRender(ERenderType_Render, AddonRender);
 	// Log initialize
 	APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, "<c=#00ff00>Initialize complete.</c>");
+}
+
+void ReceiveFont(const char* aIdentifier, void* aFont) {
+	std::string str = aIdentifier;
+
+	if (aFont == nullptr) {
+		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME,("Received nullptr for font " + std::string(aIdentifier)).c_str());
+		return;
+	}
+
+	if (str == "ROT_FONT_ASURA_SMALL")
+	{
+		renderer.registerFont(fontNameAsuraSmall, (ImFont*)aFont);
+	}
+	else if (str == "ROT_FONT_ASURA_LARGE")
+	{
+		renderer.registerFont(fontNameAsuraLarge, (ImFont*)aFont);
+	}
+	else if (str == "ROT_FONT_CHARR_SMALL")
+	{
+		renderer.registerFont(fontNameCharrSmall, (ImFont*)aFont);
+	}
+	else if (str == "ROT_FONT_CHARR_LARGE")
+	{
+		renderer.registerFont(fontNameCharrLarge, (ImFont*)aFont);
+	}
+	else if (str == "ROT_FONT_HUMAN_SMALL")
+	{
+		renderer.registerFont(fontNameHumanSmall, (ImFont*)aFont);
+	}
+	else if (str == "ROT_FONT_HUMAN_LARGE")
+	{
+		renderer.registerFont(fontNameHumanLarge, (ImFont*)aFont);
+	}
+	else if (str == "ROT_FONT_NORN_SMALL")
+	{
+		renderer.registerFont(fontNameNornSmall, (ImFont*)aFont);
+	}
+	else if (str == "ROT_FONT_NORN_LARGE")
+	{
+		renderer.registerFont(fontNameNornLarge, (ImFont*)aFont);
+	}
+	else if (str == "ROT_FONT_SYLVARI_SMALL")
+	{
+		renderer.registerFont(fontNameSylvariSmall, (ImFont*)aFont);
+	}
+	else if (str == "ROT_FONT_SYLVARI_LARGE")
+	{
+		renderer.registerFont(fontNameSylvariLarge, (ImFont*)aFont);
+	}
+	else if (str == "ROT_FONT_ASURA_ANIM_SMALL") {
+		renderer.registerFont(fontNameAsuraAnimSmall, (ImFont*)aFont);
+	}
+	else if (str == "ROT_FONT_ASURA_ANIM_LARGE") {
+		renderer.registerFont(fontNameAsuraAnimLarge, (ImFont*)aFont);
+	}
+	else if (str == "ROT_FONT_CHARR_ANIM_SMALL") {
+		renderer.registerFont(fontNameCharrAnimSmall, (ImFont*)aFont);
+	}
+	else if (str == "ROT_FONT_CHARR_ANIM_LARGE") {
+		renderer.registerFont(fontNameCharrAnimLarge, (ImFont*)aFont);
+	}
+	else if (str == "ROT_FONT_HUMAN_ANIM_SMALL") {
+		renderer.registerFont(fontNameHumanAnimSmall, (ImFont*)aFont);
+	}
+	else if (str == "ROT_FONT_HUMAN_ANIM_LARGE") {
+		renderer.registerFont(fontNameHumanAnimLarge, (ImFont*)aFont);
+	}
+	else if (str == "ROT_FONT_NORN_ANIM_SMALL") {
+		renderer.registerFont(fontNameNornAnimSmall, (ImFont*)aFont);
+	}
+	else if (str == "ROT_FONT_NORN_ANIM_LARGE") {
+		renderer.registerFont(fontNameNornAnimLarge, (ImFont*)aFont);
+	}
+	else if (str == "ROT_FONT_SYLVARI_ANIM_SMALL") {
+		renderer.registerFont(fontNameSylvariAnimSmall, (ImFont*)aFont);
+	}
+	else if (str == "ROT_FONT_SYLVARI_ANIM_LARGE") {
+		renderer.registerFont(fontNameSylvariAnimLarge, (ImFont*)aFont);
+	}
 }
 
 ///----------------------------------------------------------------------------------------------------
@@ -180,6 +292,28 @@ void AddonUnload()
 	APIDefs->DeregisterRender(AddonRender);
 	APIDefs->DeregisterRender(AddonOptions);
 
+	APIDefs->ReleaseFont("ROT_FONT_ASURA_SMALL", ReceiveFont);
+	APIDefs->ReleaseFont("ROT_FONT_ASURA_LARGE", ReceiveFont);
+	APIDefs->ReleaseFont("ROT_FONT_CHARR_SMALL", ReceiveFont);
+	APIDefs->ReleaseFont("ROT_FONT_CHARR_LARGE", ReceiveFont);
+	APIDefs->ReleaseFont("ROT_FONT_HUMAN_SMALL", ReceiveFont);
+	APIDefs->ReleaseFont("ROT_FONT_HUMAN_LARGE", ReceiveFont);
+	APIDefs->ReleaseFont("ROT_FONT_NORN_SMALL", ReceiveFont);
+	APIDefs->ReleaseFont("ROT_FONT_NORN_LARGE", ReceiveFont);
+	APIDefs->ReleaseFont("ROT_FONT_SYLVARI_SMALL", ReceiveFont);
+	APIDefs->ReleaseFont("ROT_FONT_SYLVARI_LARGE", ReceiveFont);
+
+	APIDefs->ReleaseFont("ROT_FONT_ASURA_ANIM_SMALL", ReceiveFont);
+	APIDefs->ReleaseFont("ROT_FONT_ASURA_ANIM_LARGE", ReceiveFont);
+	APIDefs->ReleaseFont("ROT_FONT_CHARR_ANIM_SMALL", ReceiveFont);
+	APIDefs->ReleaseFont("ROT_FONT_CHARR_ANIM_LARGE", ReceiveFont);
+	APIDefs->ReleaseFont("ROT_FONT_HUMAN_ANIM_SMALL", ReceiveFont);
+	APIDefs->ReleaseFont("ROT_FONT_HUMAN_ANIM_LARGE", ReceiveFont);
+	APIDefs->ReleaseFont("ROT_FONT_NORN_ANIM_SMALL", ReceiveFont);
+	APIDefs->ReleaseFont("ROT_FONT_NORN_ANIM_LARGE", ReceiveFont);
+	APIDefs->ReleaseFont("ROT_FONT_SYLVARI_ANIM_SMALL", ReceiveFont);
+	APIDefs->ReleaseFont("ROT_FONT_SYLVARI_ANIM_LARGE", ReceiveFont);
+
 	StoreSettings();
 
 	APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, "<c=#ff0000>Signing off</c>, it was an honor commander.");
@@ -189,13 +323,11 @@ void AddonUnload()
 /// PreRender Functionality
 /// </summary>
 void PreRender() {
-	// TODO bring this in once we figured out custom fonts
-	//renderer.preRender(ImGui::GetIO());
+	renderer.preRender(ImGui::GetIO());
 }
 
 void PostRender() {
-	// TODO probably bring this in once we figured out custom fonts
-	//renderer.postRender(ImGui::GetIO());
+	renderer.postRender(ImGui::GetIO());
 }
 
 ///----------------------------------------------------------------------------------------------------
@@ -238,22 +370,42 @@ void AddonOptions()
 	}
 
 	ImGui::Separator();
-	ImGui::Text("Styling");
-	ImGui::Checkbox("Show sample text", &showTemplate);
+
+	ImGui::Text("Display & Styling");
+	ImGui::Checkbox("Show sample text", &showTemplate); // TODO maybe move this to the tabs and have the sample text be displayed for that font style
 	ImGui::Text("Placeholders: @c = Continent, @r = Region, @m = Map, @s = Sector");
-	if (ImGui::InputText("Format (small heading)", displayFormatSmallBuffer, 100)) {
-		settings.displayFormatSmall = std::string(displayFormatSmallBuffer);
+	// TODO settings for "use just one racial font because it's cool" or "use generic font / disable racials"
+	// or "disable animations" (wow toxic)
+	if (ImGui::BeginTabBar("##Tabs")) {
+		for (auto& settings : settings.fontSettings) {
+			if (ImGui::BeginTabItem(settings.race.c_str())) {
+				
+				char bufferSmall[256];
+				strncpy_s(bufferSmall, settings.displayFormatSmall.c_str(), sizeof(bufferSmall));
+				if (ImGui::InputText("Display Format Small", bufferSmall, sizeof(bufferSmall))) {
+					settings.displayFormatSmall = bufferSmall;
+				}
+				char bufferLarge[256];
+				strncpy_s(bufferLarge, settings.displayFormatLarge.c_str(), sizeof(bufferLarge));
+				if (ImGui::InputText("Display Format Large", bufferLarge, sizeof(bufferLarge))) {
+					settings.displayFormatLarge = bufferLarge;
+				}
+
+				ImGui::SliderFloat("Vertical Position", &settings.verticalPosition, 0.0f, ImGui::GetIO().DisplaySize.y);
+				ImGui::SliderFloat("Spacing", &settings.spacing, -100.0f, 300.0f);
+				ImGui::SliderFloat("Font Scale", &settings.fontScale, 0.5f, 5.0f);
+				ImGui::ColorEdit3("Font Color", settings.fontColor);
+
+				// TODO test if this is true once Delta releases the next iteration or the final version of Nexus API 4.
+				ImGui::Text("Attention: changing font sizes requires unloading and reloading the addon.");
+				ImGui::InputFloat("Small Font Size", &settings.smallFontSize);
+				ImGui::InputFloat("Large Font Size", &settings.largeFontSize);
+
+				ImGui::EndTabItem();
+			}
+		}
+		ImGui::EndTabBar();
 	}
-	if (ImGui::InputText("Format (large title)", displayFormatLargeBuffer, 100)) {
-		settings.displayFormatLarge = std::string(displayFormatLargeBuffer);
-	}
-	
-	ImGui::Separator();
-	ImGui::Text("Display");
-	ImGui::SliderFloat("Vertical position", &settings.verticalPosition, 0.0f, ImGui::GetIO().DisplaySize.y);
-	ImGui::SliderFloat("Spacing", &settings.spacing, 0.0f, 100.0f);
-	ImGui::SliderFloat("Font scale", &settings.fontScale, 0.5f, 3.0f);
-	ImGui::ColorEdit3("FontColor", settings.fontColor);
 
 	ImGui::Separator();
 	ImGui::Text("WvW specific settings");
@@ -345,8 +497,11 @@ void HandleIdentityChanged(void* anEventArgs) {
 	Mumble::Identity* identity = (Mumble::Identity*)anEventArgs;
 	if (identity->Name != characterName.c_str()) {
 		characterName = std::string(identity->Name);
+		if (characterName.empty()) return;
 		// trigger sector reset on currentMapService
 		renderer.changeCurrentCharacter(characterName);
+		renderer.setRacialFont(identity->Race);
+		APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, ("Character changed: " + characterName).c_str());
 	}
 }
 

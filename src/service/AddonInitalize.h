@@ -19,8 +19,6 @@ static int on_extract_entry(const char* filename, void* arg) {
 
 static void unpackResource(const int resourceName, const std::string& resourceType, const std::string& targetFileName, bool overwrite = true) {
 
-	// TODO get from internal bundled resource somehow
-	//HRSRC hResource = FindResource(hSelf, MAKEINTRESOURCE(IDR_MAPS_ZIP), "ZIP");
 	std::wstring resourceTypeW(resourceType.begin(), resourceType.end());
 	HRSRC hResource = FindResource(hSelf, MAKEINTRESOURCE(resourceName), resourceTypeW.c_str());
 	if (hResource == NULL) {
@@ -28,14 +26,12 @@ static void unpackResource(const int resourceName, const std::string& resourceTy
 		return;
 	}
 
-	// Hole den Handler für die Ressource
 	HGLOBAL hLoadedResource = LoadResource(hSelf, hResource);
 	if (hLoadedResource == NULL) {
 		APIDefs->Log(ELogLevel::ELogLevel_CRITICAL, ADDON_NAME, ("Could not load resource: " + targetFileName).c_str());
 		return;
 	}
 
-	// Sperre den Speicherbereich der Ressource und erhalte einen Zeiger darauf
 	LPVOID lpResourceData = LockResource(hLoadedResource);
 	if (lpResourceData == NULL) {
 		APIDefs->Log(ELogLevel::ELogLevel_CRITICAL, ADDON_NAME, ("Could not lock resource: " + targetFileName).c_str());
@@ -65,7 +61,6 @@ static void unpackResource(const int resourceName, const std::string& resourceTy
 		return;
 	}
 
-	// Öffne eine Datei zum Schreiben
 	FILE* file = nullptr;
 	errno_t err = fopen_s(&file, outputPath.c_str(), "wb");
 	if (err != 0 || file == nullptr) {
@@ -73,11 +68,9 @@ static void unpackResource(const int resourceName, const std::string& resourceTy
 		return;
 	}
 
-	// Schreibe die Ressourcendaten in die Datei
 	size_t resourceSize = SizeofResource(hSelf, hResource);
 	fwrite(lpResourceData, 1, resourceSize, file);
 
-	// Schließe die Datei
 	fclose(file);
 	APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, (targetFileName + " extracted from module.").c_str());
 
@@ -92,9 +85,14 @@ static void unpackResources() {
 	unpackResource(IDR_MAPS_ZIP, "ZIP", "Maps.zip");
 	unpackResource(IDR_FONTS_CHARR, "TTF", "font_charr.ttf", false);
 	unpackResource(IDR_FONTS_HUMAN, "TTF", "font_human.ttf", false);
-	unpackResource(IDR_FONTS_SYLVARI, "TTF", "font_sylvari.ttf", false);
+	unpackResource(IDR_FONTS_SYLVARI, "TTF", "font_sylvari_v2.ttf", false);
 	unpackResource(IDR_FONTS_NORN, "TTF", "font_norn.ttf", false);
 	unpackResource(IDR_FONTS_ASURA, "TTF", "font_asura.ttf", false);
+	unpackResource(IDR_FONTS_CHARR_ANIM, "TTF", "fonts_charr_anim.ttf", false);
+	unpackResource(IDR_FONTS_HUMAN_ANIM, "TTF", "fonts_human_anim.ttf", false);
+	unpackResource(IDR_FONTS_SYLVARI_ANIM, "TTF", "fonts_sylvari_anim.ttf", false);
+	unpackResource(IDR_FONTS_NORN_ANIM, "TTF", "fonts_norn_anim.ttf", false);
+	unpackResource(IDR_FONTS_ASURA_ANIM, "TTF", "fonts_asura_anim.ttf", false);
 }
 
 #endif

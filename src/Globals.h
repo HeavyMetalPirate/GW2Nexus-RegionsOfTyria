@@ -42,4 +42,13 @@ extern gw2api::wvw::match* match;
 
 extern bool unloading;
 
+/* Utility */
+inline void replaceAll(std::string& str, const std::string& from, const std::string& to) {
+	size_t startPos = 0;
+	while ((startPos = str.find(from, startPos)) != std::string::npos) {
+		str.replace(startPos, from.length(), to);
+		startPos += to.length(); // Move past the replaced substring
+	}
+}
+
 #endif // GLOBALS_H

@@ -1,18 +1,16 @@
 #include "AddonRenderer.h"
 #include <fstream>
 
+#include <d3d11.h>
+#include "../imgui/imgui_impl_dx11.h"
+#include "../imgui/imgui_impl_win32.h"
+
 
 using json = nlohmann::json;
 
 /* Proto */
-void centerText(std::string text, float textY, float opacityOverride);
 void fade();
-
-/* Render subfunctions */
-void renderSampleInfo();
-void renderSectorInfo();
-void renderInfo(std::string continent, std::string region, std::string map, std::string sector, float opacityOverride);
-void renderDebugInfo();
+void cancelCurrentAnimation();
 
 std::thread animationThread;
 std::mutex animMutex;
@@ -25,15 +23,21 @@ CurrentMapService currentMapService = CurrentMapService();
 int currentSectorId = -1;
 int currentMapId = -1;
 std::string currentCharacter = "";
+Mumble::ERace currentRace;
+bool fontsPicked;
+
+bool fontsLoaded = false;
 
 Renderer::Renderer() {}
 Renderer::~Renderer() {}
+
 
 void Renderer::changeCurrentCharacter(std::string c) {
 	if (currentCharacter != c) {
 		currentCharacter = c;
 		currentSectorId = -1;
 		currentMapId = -1;
+		fontsPicked = false;
 	}
 }
 
@@ -44,80 +48,74 @@ void Renderer::unload() {
 	}
 }
 
-void Renderer::preRender(ImGuiIO& io) {
-	/*
-	// Reference as to why this should work as implemented:
-	// https://github.com/ocornut/imgui/issues/2311#issuecomment-460039964
-	// However it breaks everything Nexus has set up on its device.
-	// Which is, suboptimal, to say the least.
-	if (!fontsLoaded) {
-		
-		fonts = std::map<std::string, ImFont*>();
+void Renderer::registerFont(std::string name, ImFont* font) {
+	APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, ("Registering font: " + name).c_str());
+	APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, font->GetDebugName());
+	fonts.emplace(name, font);
+}
 
-		std::string pathFolder = APIDefs->GetAddonDirectory(ADDON_NAME);
-		fonts.emplace("fontCharr", loadFont(io, pathFolder + "/font_charr.ttf", 20.0f));
-		fonts.emplace("fontHuman", loadFont(io, pathFolder + "/font_human.ttf", 20.0f));
-		fonts.emplace("fontSylvari", loadFont(io, pathFolder + "/font_sylvari.ttf", 20.0f));
-		fonts.emplace("fontNorn", loadFont(io, pathFolder + "/font_norn.ttf", 20.0f));
-		fonts.emplace("fontAsura", loadFont(io, pathFolder + "/font_asura.ttf", 40.0f));
-		io.Fonts->Build();
-		ImGui_ImplDX11_InvalidateDeviceObjects();
-		
-		/*
-		ImGuiContext* ctx = ((ImGuiContext*)APIDefs->ImguiContext);
-		IDXGISwapChain* swapchain = ((IDXGISwapChain*)APIDefs->SwapChain);
-		swapchain->GetDevice();
+void Renderer::setRacialFont(Mumble::ERace race) {
+	currentRace = Mumble::ERace::Asura;
+	// if we haven't been supplied with fonts leave here to avoid nullpointers
+	if (this->fonts.empty()) { return; }
 
+	// TODO maybe refactor this a little because accessing fonts before they are delivered will put nullptrs here
+	if (race == Mumble::ERace::Asura) {
+		fontLarge = this->fonts[fontNameAsuraLarge];
+		fontSmall = this->fonts[fontNameAsuraSmall];
 
-		io.Fonts->Build();
-		ImGui_ImplDX11_InvalidateDeviceObjects();
-		* /
-
-		fontsLoaded = true;
+		fontAnimLarge = this->fonts[fontNameAsuraAnimLarge];
+		fontAnimSmall = this->fonts[fontNameAsuraAnimSmall];
 	}
-	*/
+	else if (race == Mumble::ERace::Charr) {
+		fontLarge = this->fonts[fontNameCharrLarge];
+		fontSmall = this->fonts[fontNameCharrSmall];
+
+		fontAnimLarge = this->fonts[fontNameCharrAnimLarge];
+		fontAnimSmall = this->fonts[fontNameCharrAnimSmall];
+	}
+	else if (race == Mumble::ERace::Human) {
+		fontLarge = this->fonts[fontNameHumanLarge];
+		fontSmall = this->fonts[fontNameHumanSmall];
+
+		fontAnimLarge = this->fonts[fontNameHumanAnimLarge];
+		fontAnimSmall = this->fonts[fontNameHumanAnimSmall];
+	}
+	else if (race == Mumble::ERace::Norn) {
+		fontLarge = this->fonts[fontNameNornLarge];
+		fontSmall = this->fonts[fontNameNornSmall];
+
+		fontAnimLarge = this->fonts[fontNameNornAnimLarge];
+		fontAnimSmall = this->fonts[fontNameNornAnimSmall];
+	}
+	else if (race == Mumble::ERace::Sylvari) {
+		fontLarge = this->fonts[fontNameSylvariLarge];
+		fontSmall = this->fonts[fontNameSylvariSmall];
+
+		fontAnimLarge = this->fonts[fontNameSylvariAnimLarge];
+		fontAnimSmall = this->fonts[fontNameSylvariAnimSmall];
+	}
+
+	if(fontLarge != nullptr) 
+		APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, ("FontLarge: " + std::string(fontLarge->GetDebugName())).c_str());
+	if(fontSmall != nullptr)
+		APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, ("FontSmall: " + std::string(fontSmall->GetDebugName())).c_str());
+	if(fontAnimLarge != nullptr)
+		APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, ("FontAnimLarge: " + std::string(fontAnimLarge->GetDebugName())).c_str());
+	if(fontAnimSmall != nullptr) 
+		APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, ("FontAnimSmall: " + std::string(fontAnimSmall->GetDebugName())).c_str());
+
+	fontsPicked = true;
+	currentRace = race;
+}
+
+void Renderer::preRender(ImGuiIO& io) {
+	// NO OP
 }
 
 void Renderer::postRender(ImGuiIO& io) {
-	/*if (defaultFontAtlas != nullptr) {
-		io.Fonts = defaultFontAtlas;
-
-		ImGui_ImplDX11_InvalidateDeviceObjects();
-		ImGui_ImplDX11_CreateDeviceObjects();
-	}*/
+	// NO OP
 }
-
-//ImFont* Renderer::loadFont(ImGuiIO& io, std::string path, float size) {
-	/*ImFontConfig fontConfig;
-	fontConfig.FontDataOwnedByAtlas = false;
-	ImFont* newFont = io.Fonts->AddFontFromFileTTF(path.c_str(), size, &fontConfig);
-
-	if (newFont == nullptr) {
-		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, ("Could not load font: " + path).c_str());
-		return nullptr;
-	}
-	io.Fonts->Build();
-	ImGui_ImplDX11_InvalidateDeviceObjects();
-	ImGui_ImplDX11_CreateDeviceObjects();
-	return newFont;*/
-//}
-
-//std::vector<unsigned char> Renderer::readFontFile(const char* filename) {
-	/*std::ifstream file(filename, std::ios::binary | std::ios::ate);
-	std::streamsize size = file.tellg();
-	file.seekg(0, std::ios::beg);
-
-	std::vector<unsigned char> buffer(size);
-	if (file.read((char*)buffer.data(), size))
-	{
-		return buffer;
-	}
-	else
-	{
-		// Handle error
-		return std::vector<unsigned char>();
-	}*/
-//}
 
 void Renderer::render() {
 	if (unloading) return;
@@ -126,110 +124,12 @@ void Renderer::render() {
 	renderDebugInfo();
 }
 
-void centerText(std::string text, float textY, float opacityOverride) {
-	ImGuiIO& io = ImGui::GetIO();
-	ImVec2 windowSize = io.DisplaySize;
-
-	// Center Text voodoo
-	ImVec2 textSize = ImGui::CalcTextSize(text.c_str());
-	float textX = (windowSize.x - textSize.x) / 2.0f;
-
-	ImGui::SetCursorScreenPos(ImVec2(textX + 2, textY + 2));
-	ImGui::TextColored(ImVec4(0, 0, 0, opacityOverride), text.c_str()); // shadow
-	ImGui::SetCursorPos(ImVec2(textX, textY));
-	ImGui::TextColored(ImVec4(settings.fontColor[0], settings.fontColor[1], settings.fontColor[2], opacityOverride), text.c_str()); // text
-}
-
-
-void cancelCurrentAnimation() {
-	opacity = 0.0f;
-	animating = false;
-	cancelAnimation = false;
-	//APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, "Animation cancelled");
-}
-
-/// <summary>
-/// Original Author: Delta
-/// Additions to fade out after sleep: Pirate
-/// 
-/// Routine to fade in/fade out content hooked on the opacity flag.
-/// Music Tip: NOTHING MORE - FADE IN/FADE OUT:
-/// https://www.youtube.com/watch?v=wBC3Tl0dg4M
-/// </summary>
-void fade() {
-	std::lock_guard<std::mutex> lock(animMutex); // Ensures single-thread access
-
-	if (animating) return; // we are already animating, so stop it now
-	//APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, "Animation started.");
-	animating = true;
-	try {
-		// fade in
-		while (true)
-		{
-			if (unloading || cancelAnimation) {
-				cancelCurrentAnimation();
-				return;
-			}
-			opacity += 0.05f;
-			if (opacity > 1) {
-				opacity = 1.0f;
-				break;
-			}
-
-			Sleep(35);
-		}
-		// Stay sharp
-		for (int i = 0; i < 3000;i++) {
-			if (unloading || cancelAnimation) {
-				cancelCurrentAnimation();
-				return;
-			}
-			Sleep(1); // sleep first so the text stays a little
-		}
-		// fade out
-		while (true)
-		{
-			if (unloading || cancelAnimation) {
-				cancelCurrentAnimation();
-				return;
-			}
-
-			opacity -= 0.05f;
-
-			if (opacity < 0.0f) {
-				opacity = 0.0f;
-				break;
-			}
-
-			Sleep(35);
-		}
-	}
-	catch (const std::exception& e) {
-		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Exception in animation thread.");
-		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, e.what());
-	}
-	catch (...) {
-		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Unknown exception thread.");
-	}
-	cancelAnimation = false;
-	animating = false;
-	//APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, "Animation thread complete.");
-}
-
-void replaceAll(std::string& str, const std::string& from, const std::string& to) {
-	size_t startPos = 0;
-	while ((startPos = str.find(from, startPos)) != std::string::npos) {
-		str.replace(startPos, from.length(), to);
-		startPos += to.length(); // Move past the replaced substring
-	}
-}
-
-void renderSampleInfo() {
+void Renderer::renderSampleInfo() {
 	if (!showTemplate) return;
 	renderInfo("Continent", "Region", "Map", "Sector", 1.0f);
 }
 
-void renderSectorInfo() {
+void Renderer::renderSectorInfo() {
 
 	// TODO possible skips for render:
 	// - when in map view
@@ -262,7 +162,7 @@ void renderSectorInfo() {
 	renderInfo(currentMap->continentName, currentMap->regionName, currentMap->name, currentMap->currentSector.name, opacity);
 }
 
-void renderInfo(std::string continent, std::string region, std::string map, std::string sector, float opacityOverride) {
+void Renderer::renderInfo(std::string continent, std::string region, std::string map, std::string sector, float opacityOverride) {
 	ImGuiIO& io = ImGui::GetIO();
 	ImVec2 windowSize = io.DisplaySize;
 	// Make the next Window go over the entire screen for easier calculations
@@ -332,82 +232,67 @@ void renderInfo(std::string continent, std::string region, std::string map, std:
 		replaceAll(largeText, blueTeam, blueTeamText);
 		replaceAll(largeText, greenTeam, greenTeamText);
 
+		if (!fontsPicked) {
+			setRacialFont(currentRace);
+		}
+		// whether we picked fonts successfully or not, make sure they're loaded properly and fall back to nexus fonts in case they're not
+		// Font fallback
+		if (fontLarge == nullptr) {
+			fontLarge = (ImFont*)NexusLink->FontBig;
+			APIDefs->Log(ELogLevel_WARNING, ADDON_NAME, "FontLarge null, fallback to Nexus default font.");
+		}
+		else if (!fontLarge->IsLoaded()) {
+			fontLarge = (ImFont*)NexusLink->FontBig;
+			APIDefs->Log(ELogLevel_WARNING, ADDON_NAME, "FontLarge not loaded, fallback to Nexus default font.");
+		}
+		if (fontSmall == nullptr) {
+			APIDefs->Log(ELogLevel_WARNING, ADDON_NAME, "FontSmall null, fallback to Nexus default font.");
+			fontSmall = (ImFont*)NexusLink->Font;
+		}
+		else if (!fontSmall->IsLoaded()) {
+			APIDefs->Log(ELogLevel_WARNING, ADDON_NAME, "FontSmall not loaded, fallback to Nexus default font.");
+			fontSmall = (ImFont*)NexusLink->Font;
+		}
+		// Animation Font flalback
+		if (fontAnimLarge == nullptr) {
+			APIDefs->Log(ELogLevel_WARNING, ADDON_NAME, "FontAnimLarge null, fallback to Nexus default font.");
+			fontAnimLarge = (ImFont*)NexusLink->FontBig;
+		}
+		else if (!fontAnimLarge->IsLoaded()) {
+			APIDefs->Log(ELogLevel_WARNING, ADDON_NAME, "FontAnimLarge not loaded, fallback to Nexus default font.");
+			fontAnimLarge = (ImFont*)NexusLink->FontBig;
+		}
+		if (fontAnimSmall == nullptr) {
+			APIDefs->Log(ELogLevel_WARNING, ADDON_NAME, "FontAnimSmall null, fallback to Nexus default font.");
+			fontAnimSmall = (ImFont*)NexusLink->Font;
+		}
+		else if (!fontAnimSmall->IsLoaded()) {
+			APIDefs->Log(ELogLevel_WARNING, ADDON_NAME, "FontAnimSmall not loaded, fallback to Nexus default font.");
+			fontAnimSmall = (ImFont*)NexusLink->Font;
+		}
+
 		// Large Text - change scale just for this
-		ImFont* font = (ImFont*)NexusLink->FontBig;
-		float originalFontScale = font->Scale;
-		font->Scale = settings.fontScale;
-		ImGui::PushFont(font);
+		float originalFontScale = fontLarge->Scale;
+		float originalFontAnimScale = fontAnimLarge->Scale;
+		fontLarge->Scale = settings.fontScale;
+		fontAnimLarge->Scale = settings.fontScale;
 		centerText(largeText, settings.verticalPosition, opacityOverride);
-		font->Scale = originalFontScale;
-		ImGui::PopFont();
+		fontLarge->Scale = originalFontScale;
+		fontAnimLarge->Scale = originalFontAnimScale;
 
 		// Small Text
-		ImFont* fontSmall = (ImFont*)NexusLink->Font;
 		originalFontScale = fontSmall->Scale;
-		fontSmall->Scale = (settings.fontScale *2/3); // scale it a little smaller
-		ImGui::PushFont(fontSmall);
-		centerText(smallText, settings.verticalPosition - settings.spacing, opacityOverride);
+		originalFontAnimScale = fontAnimSmall->Scale;
+		fontSmall->Scale = (settings.fontScale); 
+		fontAnimSmall->Scale = (settings.fontScale); 
+		centerTextSmall(smallText, settings.verticalPosition - settings.spacing, opacityOverride);
 		fontSmall->Scale = originalFontScale;
-		ImGui::PopFont();
-
-		/*
-		* Once we figured out custom fonts, use the right font for our character race, or any other according to settings (?)
-		*
-		// Charr specific Font
-		ImGui::PushFont(fonts["fontCharr"]);
-		if (ImGui::GetFont() == nullptr) {
-			APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, "fontCharr = nullptr");
-		}
-
-		ImGui::Text(("Current Map: " + currentMap->name).c_str());
-		ImGui::Text(("Current Sector: " + currentMap->currentSector.name).c_str());
-		ImGui::PopFont();
-
-		// Human specific Font
-		ImGui::PushFont(fonts["fontHuman"]);
-		if (ImGui::GetFont() == nullptr) {
-			APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, "fontHuman = nullptr");
-		}
-
-		ImGui::Text(("Current Map: " + currentMap->name).c_str());
-		ImGui::Text(("Current Sector: " + currentMap->currentSector.name).c_str());
-		ImGui::PopFont();
-
-		// Sylvari specific Font
-		ImGui::PushFont(fonts["fontSylvari"]);
-		if (ImGui::GetFont() == nullptr) {
-			APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, "fontSylvari = nullptr");
-		}
-
-		ImGui::Text(("Current Map: " + currentMap->name).c_str());
-		ImGui::Text(("Current Sector: " + currentMap->currentSector.name).c_str());
-		ImGui::PopFont();
-
-		// Norn specific Font
-		ImGui::PushFont(fonts["fontNorn"]);
-		if (ImGui::GetFont() == nullptr) {
-			APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, "fontNorn = nullptr");
-		}
-
-		ImGui::Text(("Current Map: " + currentMap->name).c_str());
-		ImGui::Text(("Current Sector: " + currentMap->currentSector.name).c_str());
-		ImGui::PopFont();
-
-		// Asura specific Font
-		ImGui::PushFont(fonts["fontAsura"]);
-		if (ImGui::GetFont() == nullptr) {
-			APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, "fontAsura = nullptr");
-		}
-
-		ImGui::Text(("Current Map: " + currentMap->name).c_str());
-		ImGui::Text(("Current Sector: " + currentMap->currentSector.name).c_str());
-		ImGui::PopFont();
-		*/
+		fontAnimSmall->Scale = originalFontAnimScale;
 	}
 	ImGui::End();
 }
 
-void renderDebugInfo() {
+void Renderer::renderDebugInfo() {
 	if (!showDebug) return;
 	ImGuiIO& io = ImGui::GetIO();
 
@@ -510,23 +395,29 @@ void renderDebugInfo() {
 		ImGui::PopFont();
 	
 		ImGui::Separator();
-		std::string title = "Loaded fonts: " + std::to_string(io.Fonts->Fonts.size());
+		std::string title = "Loaded fonts: " + std::to_string(fonts.size());
 		if (ImGui::CollapsingHeader(title.c_str())) {
 			
-			for (auto font : io.Fonts->Fonts) {
+			for (auto font : fonts) {
 				
-				if (font->IsLoaded()) {
+				if (font.second == nullptr) {
+					ImGui::PushFont((ImFont*)NexusLink->Font);
+					const char* debugname = font.first.c_str();
+					std::string message = "Error: Font is nullptr: " + std::string(debugname);
+					ImGui::Text(message.c_str());
+					ImGui::PopFont();
+				}
+				else if (font.second->IsLoaded()) {
 
-					ImGui::PushFont(font);
-					std::string fontName = "Font name: " + std::string(font->ConfigData->Name) + ", Size : " + std::to_string(font->FontSize);
+					std::string fontName = "Font name: " + std::string(font.second->ConfigData->Name) + ", Size : " + std::to_string(font.second->FontSize);
 					ImGui::Text(fontName.c_str());
+					ImGui::PushFont(font.second);
 					ImGui::Text("ABCDEFGHIJKLMNOPQRSTUVWXYZ_abdefghijklmnopqrstuvwxyz");
 					ImGui::PopFont();
 				}
 				else {
-
 					ImGui::PushFont((ImFont*)NexusLink->Font);
-					const char* debugname = font->GetDebugName();
+					const char* debugname = font.second->GetDebugName();
 					std::string message = "Error: Font not loaded: " + std::string(debugname);
 					ImGui::Text(message.c_str());
 					ImGui::PopFont();
@@ -538,3 +429,162 @@ void renderDebugInfo() {
 	ImGui::End();
 }
 
+void Renderer::renderTextAnimation(const char* text, float opacityOverride, bool large, bool isShadow) {
+	ImFont* main = large ? fontLarge : fontSmall;
+	ImFont* secondary = large ? fontAnimLarge : fontAnimSmall;
+	ImVec4 color = ImVec4(settings.fontColor[0], settings.fontColor[1], settings.fontColor[2], opacityOverride);
+	ImVec4 shadow = ImVec4(0, 0, 0, opacityOverride);
+
+	ImVec2 originalCursorPos = ImGui::GetCursorPos();
+
+	float font1Size = main->FontSize;
+	float font2Size = secondary->FontSize;
+
+	// Calculate the offset to align secondary to the center of main
+	float yOffset = (font1Size - font2Size) * 0.5f;
+	float currentX = originalCursorPos.x;
+
+	// Calculate the scaling factor for font2
+	float scalingFactor = font1Size / font2Size;
+	float originalSecondaryScaling = secondary->Scale;
+	secondary->Scale = scalingFactor;
+
+	for (const char* p = text; *p; p++) {
+
+		// Pick font based on opacity; lower opacity more favorably to secondary
+		ImFont* selectedFont = (opacityOverride < 1.0f && ((float)rand() / RAND_MAX) > opacityOverride) ? secondary : main;
+		
+		// Align height to center with main font
+		ImGui::PushFont(selectedFont);
+		if (selectedFont == secondary) {
+			ImVec2 charPos = ImGui::GetCursorPos();
+			ImGui::SetCursorPos(ImVec2(charPos.x, charPos.y + yOffset));
+		}
+
+		ImGui::PushStyleColor(ImGuiCol_Text, isShadow? shadow : color);
+		ImGui::TextUnformatted(p, p + 1);
+		ImGui::PopStyleColor();
+
+		// reset position
+		if (selectedFont == secondary) {
+			ImVec2 charPos = ImGui::GetCursorPos();
+			ImGui::SetCursorPos(ImVec2(charPos.x, charPos.y - yOffset));
+
+		}
+
+		ImGui::PopFont();
+		
+		if (p[1]) {	
+			ImVec2 delta = main->CalcTextSizeA(font1Size, FLT_MAX, 0.0f, p, p + 1);
+			currentX += delta.x + (main->GetCharAdvance(p[0])); // shift currentX to (character size if it were main font) + (kerning if it was main font)
+			ImGui::SetCursorPos(ImVec2(currentX, originalCursorPos.y));
+		}
+	}
+	secondary->Scale = originalSecondaryScaling;
+}
+
+void Renderer::centerText(std::string text, float textY, float opacityOverride) {
+	ImGuiIO& io = ImGui::GetIO();
+	ImVec2 windowSize = io.DisplaySize;
+
+	// Center Text voodoo
+	ImGui::PushFont(fontLarge);
+	ImVec2 textSize = ImGui::CalcTextSize(text.c_str());
+	float textX = (windowSize.x - textSize.x) / 2.0f;
+	ImGui::PopFont();
+
+	ImGui::SetCursorScreenPos(ImVec2(textX + 2, textY + 2));
+	renderTextAnimation(text.c_str(), opacityOverride, true, true);
+	ImGui::SetCursorPos(ImVec2(textX, textY));
+	renderTextAnimation(text.c_str(), opacityOverride, true, false);
+}
+void Renderer::centerTextSmall(std::string text, float textY, float opacityOverride) {
+	ImGuiIO& io = ImGui::GetIO();
+	ImVec2 windowSize = io.DisplaySize;
+
+	// Center Text voodoo
+	ImGui::PushFont(fontSmall);
+	ImVec2 textSize = ImGui::CalcTextSize(text.c_str());
+	float textX = (windowSize.x - textSize.x) / 2.0f;
+	ImGui::PopFont();
+
+	ImGui::SetCursorScreenPos(ImVec2(textX + 2, textY + 2));
+	renderTextAnimation(text.c_str(), opacityOverride, false, true);
+	ImGui::SetCursorPos(ImVec2(textX, textY));
+	renderTextAnimation(text.c_str(), opacityOverride, false, false);
+}
+
+void cancelCurrentAnimation() {
+	opacity = 0.0f;
+	animating = false;
+	cancelAnimation = false;
+	//APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, "Animation cancelled");
+}
+
+/// <summary>
+/// Original Author: Delta
+/// Additions to fade out after sleep: Pirate
+/// 
+/// Routine to fade in/fade out content hooked on the opacity flag.
+/// Music Tip: NOTHING MORE - FADE IN/FADE OUT:
+/// https://www.youtube.com/watch?v=wBC3Tl0dg4M
+/// </summary>
+void fade() {
+	std::lock_guard<std::mutex> lock(animMutex); // Ensures single-thread access
+
+	if (animating) return; // we are already animating, so stop it now
+	//APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, "Animation started.");
+	animating = true;
+	try {
+		// fade in
+		while (true)
+		{
+			if (unloading || cancelAnimation) {
+				cancelCurrentAnimation();
+				return;
+			}
+			opacity += 0.05f;
+			if (opacity > 1) {
+				opacity = 1.0f;
+				break;
+			}
+
+			Sleep(35);
+		}
+		// Stay sharp
+		for (int i = 0; i < 3000; i++) {
+			if (unloading || cancelAnimation) {
+				cancelCurrentAnimation();
+				return;
+			}
+			Sleep(1); // sleep first so the text stays a little
+		}
+		// fade out
+		while (true)
+		{
+			if (unloading || cancelAnimation) {
+				cancelCurrentAnimation();
+				return;
+			}
+
+			opacity -= 0.05f;
+
+			if (opacity < 0.0f) {
+				opacity = 0.0f;
+				break;
+			}
+
+			Sleep(35);
+		}
+	}
+	catch (const std::exception& e) {
+		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Exception in animation thread.");
+		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, e.what());
+	}
+	catch (...) {
+		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Unknown exception thread.");
+	}
+	cancelAnimation = false;
+	animating = false;
+	//APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, "Animation thread complete.");
+}

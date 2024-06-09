@@ -75,22 +75,111 @@ inline std::vector<LocaleItem> localeItems = {
 };
 
 /// ================================================================================
-/// <summary>
-/// Settings Struct & JSON functionality
-/// </summary>
-struct Settings {
-    Locale locale;
-    
+
+struct RacialFontSettings {
+    std::string race;
+
+    float smallFontSize;
     std::string displayFormatSmall;
+    float largeFontSize;
     std::string displayFormatLarge;
 
     float verticalPosition;
     float spacing;
     float fontScale;
     float fontColor[3];
+};
+inline void to_json(json& j, const RacialFontSettings& s) {
+    j = json{
+        {"race",s.race},
+        {"fontSmallSize", s.smallFontSize},
+        {"fontLargeSize", s.largeFontSize},
+        {"displayFormatSmall", s.displayFormatSmall},
+        {"displayFormatLarge", s.displayFormatLarge},
+        {"verticalPosition", s.verticalPosition},
+        {"spacing", s.spacing},
+        {"fontScale", s.fontScale},
+        {"fontColor", s.fontColor}
+    };
+}
+inline void from_json(const json& j, RacialFontSettings& s) {
+    if (j.contains("race")) {
+        j.at("race").get_to(s.race);
+    }
+    else {
+        s.race = "generic";
+    }
+    if (j.contains("fontSmallSize")) {
+        j.at("fontSmallSize").get_to(s.smallFontSize);
+    }
+    else {
+        s.smallFontSize = 26.0f;
+    }
+    if (j.contains("fontLargeSize")) {
+        j.at("fontLargeSize").get_to(s.largeFontSize);
+    }
+    else {
+        s.largeFontSize = 72.0f;
+    }
+    if (j.contains("displayFormatSmall")) {
+        j.at("displayFormatSmall").get_to(s.displayFormatSmall);
+    }
+    else {
+        s.displayFormatSmall = "@c | @r | @m";
+    }
+    if (j.contains("displayFormatLarge")) {
+        j.at("displayFormatLarge").get_to(s.displayFormatLarge);
+    }
+    else {
+        s.displayFormatLarge = "@s";
+    }
+    if (j.contains("verticalPosition")) {
+        j.at("verticalPosition").get_to(s.verticalPosition);
+    }
+    else {
+        s.verticalPosition = 300;
+    }
+    if (j.contains("spacing")) {
+        j.at("spacing").get_to(s.spacing);
+    }
+    else {
+        s.spacing = 25;
+    }
+    if (j.contains("fontScale")) {
+        j.at("fontScale").get_to(s.fontScale);
+    }
+    else {
+        s.fontScale = 1.5f;
+    }
+    if (j.contains("fontColor")) {
+        j.at("fontColor").get_to(s.fontColor);
+    }
+    else {
+        s.fontColor[0] = 255.0f;
+        s.fontColor[1] = 255.0f;
+        s.fontColor[2] = 255.0f;
+    }
+}
+
+/// <summary>
+/// Settings Struct & JSON functionality
+/// </summary>
+struct Settings {
+    Locale locale;
+    
+    // 0 = generic, 1 = asura, 2 = charr, 3 = human, 4 = norn, 5 = sylvari
+    RacialFontSettings fontSettings[6];
 
     // required for WvW maps
     int worldId;
+
+    // legacy display settings
+    std::string displayFormatSmall;
+    std::string displayFormatLarge;
+    float verticalPosition;
+    float spacing;
+    float fontScale;
+    float fontColor[3];
 
 };
 inline void to_json(json& j, const Settings& settings) {
@@ -102,7 +191,8 @@ inline void to_json(json& j, const Settings& settings) {
         {"spacing", settings.spacing},
         {"fontScale", settings.fontScale},
         {"fontColor", settings.fontColor},
-        {"worldId", settings.worldId}
+        {"worldId", settings.worldId},
+        {"fontSettings", settings.fontSettings}
     };
 }
 inline void from_json(const json& j, Settings& settings) {
@@ -155,6 +245,31 @@ inline void from_json(const json& j, Settings& settings) {
     }
     else {
         settings.worldId = 0;
+    }
+    if (j.contains("fontSettings")) {
+        j.at("fontSettings").get_to(settings.fontSettings);
+    }
+    else {
+        // init everything with the current generic
+        for (int i = 0; i < 6; i++) {
+            RacialFontSettings s = RacialFontSettings();
+            s.race = i == 0 ? "Generic" :
+                i == 1 ? "Asura" :
+                i == 2 ? "Charr" :
+                i == 3 ? "Human" :
+                i == 4 ? "Norn" :
+                i == 5 ? "Sylvari" : "wtf";
+            s.displayFormatSmall = settings.displayFormatSmall;
+            s.displayFormatLarge = settings.displayFormatLarge;
+            s.spacing = settings.spacing;
+            s.verticalPosition = settings.verticalPosition;
+            s.fontScale = settings.fontScale;
+            s.fontColor[0] = settings.fontColor[0];
+            s.fontColor[1] = settings.fontColor[1];
+            s.fontColor[2] = settings.fontColor[2];
+
+            settings.fontSettings[i] = s;
+        }
     }
 }
 /// ================================================================================
