@@ -40,17 +40,23 @@ void MapLoaderService::unload() {
 /// <returns>Result of the call, or nullptr in case of a timeout on the client</returns>
 std::string MapLoaderService::performRequest(std::string uri) {	
 	std::string requestUri = baseUrl + uri;
-	std::string response = HTTPClient::GetRequest(requestUri);
-
-	int retry = 1;
-	while (response.empty() && retry < 10) {
-		if (unloading) break;
-		retry++;
+	std::string response = "";
+	try {
 		response = HTTPClient::GetRequest(requestUri);
-	}
+
+		int retry = 1;
+		while (response.empty() && retry < 10) {
+			if (unloading) break;
+			retry++;
+			response = HTTPClient::GetRequest(requestUri);
+		}
 #ifndef NDEBUG
-	APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, ("Fetched result for " + uri + " after " + std::to_string(retry) + " attempts.").c_str());
+		APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, ("Fetched result for " + uri + " after " + std::to_string(retry) + " attempts.").c_str());
 #endif
+	}
+	catch (...) {
+		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Unknown exception performing HTTP call.");
+	}
 	return response;
 }
 
@@ -68,7 +74,12 @@ void MapLoaderService::initializeMapStorage() {
 			// Update from API in case the preloaded data was incomplete
 			// This is a longer operation, potentially up to 15 minutes depending on how responsive the API is
 			// or could be done in 10 seconds if the API is like super fast? Woah.
-			loadAllMapsFromApi(); 
+			try {
+				loadAllMapsFromApi();
+			}
+			catch (...) {
+				APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Unknown exception loading maps from API.");
+			}
 		});
 	}
 
