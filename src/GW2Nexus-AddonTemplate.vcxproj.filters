@@ -78,5 +78,7 @@
     <Font Include="resources\animfont_human.ttf" />
     <Font Include="resources\animfont_sylvari.ttf" />
     <Font Include="resources\mapfont_human.ttf" />
+    <Font Include="resources\animfont_generic.ttf" />
+    <Font Include="resources\mapfont_generic.ttf" />
   </ItemGroup>
 </Project>

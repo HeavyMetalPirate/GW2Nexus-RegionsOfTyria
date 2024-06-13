@@ -14,6 +14,8 @@ public:
 	void render();
 	void postRender(ImGuiIO& io);
 
+	void clearFonts();
+	bool isCleared();
 	void registerFont(std::string name, ImFont* font);
 	void setRacialFont(Mumble::ERace race);
 	void setGenericFont();

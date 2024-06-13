@@ -279,6 +279,8 @@ inline void from_json(const json& j, Settings& settings) {
             s.fontColor[0] = settings.fontColor[0];
             s.fontColor[1] = settings.fontColor[1];
             s.fontColor[2] = settings.fontColor[2];
+            s.largeFontSize = 72.0f;
+            s.smallFontSize = 28.0f;
 
             settings.fontSettings[i] = s;
         }

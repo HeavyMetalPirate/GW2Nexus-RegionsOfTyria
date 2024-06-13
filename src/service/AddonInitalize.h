@@ -81,18 +81,25 @@ static void unpackResource(const int resourceName, const std::string& resourceTy
 	}
 }
 
+static void UnpackFonts(bool overwrite) {
+	unpackResource(IDR_FONTS_CHARR, "TTF", "font_charr.ttf", overwrite);
+	unpackResource(IDR_FONTS_HUMAN, "TTF", "font_human_v2.ttf", overwrite);
+	unpackResource(IDR_FONTS_SYLVARI, "TTF", "font_sylvari_v2.ttf", overwrite);
+	unpackResource(IDR_FONTS_NORN, "TTF", "font_norn.ttf", overwrite);
+	unpackResource(IDR_FONTS_ASURA, "TTF", "font_asura.ttf", overwrite);
+	unpackResource(IDR_FONTS_GENERIC, "TTF", "font_generic.ttf", overwrite);
+	unpackResource(IDR_FONTS_CHARR_ANIM, "TTF", "fonts_charr_anim.ttf", overwrite);
+	unpackResource(IDR_FONTS_HUMAN_ANIM, "TTF", "fonts_human_anim.ttf", overwrite);
+	unpackResource(IDR_FONTS_SYLVARI_ANIM, "TTF", "fonts_sylvari_anim.ttf", overwrite);
+	unpackResource(IDR_FONTS_NORN_ANIM, "TTF", "fonts_norn_anim.ttf", overwrite);
+	unpackResource(IDR_FONTS_ASURA_ANIM, "TTF", "fonts_asura_anim.ttf", overwrite);
+	unpackResource(IDR_FONTS_GENERIC_ANIM, "TTF", "fonts_generic_anim.ttf", overwrite);
+}
+
 static void unpackResources() {
 	unpackResource(IDR_MAPS_ZIP, "ZIP", "Maps.zip");
-	unpackResource(IDR_FONTS_CHARR, "TTF", "font_charr.ttf", false);
-	unpackResource(IDR_FONTS_HUMAN, "TTF", "font_human.ttf", false);
-	unpackResource(IDR_FONTS_SYLVARI, "TTF", "font_sylvari_v2.ttf", false);
-	unpackResource(IDR_FONTS_NORN, "TTF", "font_norn.ttf", false);
-	unpackResource(IDR_FONTS_ASURA, "TTF", "font_asura.ttf", false);
-	unpackResource(IDR_FONTS_CHARR_ANIM, "TTF", "fonts_charr_anim.ttf", false);
-	unpackResource(IDR_FONTS_HUMAN_ANIM, "TTF", "fonts_human_anim.ttf", false);
-	unpackResource(IDR_FONTS_SYLVARI_ANIM, "TTF", "fonts_sylvari_anim.ttf", false);
-	unpackResource(IDR_FONTS_NORN_ANIM, "TTF", "fonts_norn_anim.ttf", false);
-	unpackResource(IDR_FONTS_ASURA_ANIM, "TTF", "fonts_asura_anim.ttf", false);
+	UnpackFonts(false);
 }
+
 
 #endif

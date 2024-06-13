@@ -245,11 +245,13 @@
   <ItemGroup>
     <Font Include="resources\animfont_asura.ttf" />
     <Font Include="resources\animfont_charr.ttf" />
+    <Font Include="resources\animfont_generic.ttf" />
     <Font Include="resources\animfont_human.ttf" />
     <Font Include="resources\animfont_norn.ttf" />
     <Font Include="resources\animfont_sylvari.ttf" />
     <Font Include="resources\mapfont_asura.ttf" />
     <Font Include="resources\mapfont_charr.ttf" />
+    <Font Include="resources\mapfont_generic.ttf" />
     <Font Include="resources\mapfont_human.ttf" />
     <Font Include="resources\mapfont_norn.ttf" />
     <Font Include="resources\mapfont_sylvari.ttf" />

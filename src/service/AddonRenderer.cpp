@@ -28,6 +28,7 @@ RacialFontSettings* fontSettings = nullptr;
 bool fontsPicked;
 
 bool fontsLoaded = false;
+int expectedFontCount = 24;
 
 Renderer::Renderer() {}
 Renderer::~Renderer() {}
@@ -49,12 +50,36 @@ void Renderer::unload() {
 	}
 }
 
+bool Renderer::isCleared() {
+	return fonts.size() == 0;
+}
+
+void Renderer::clearFonts() {
+	// set flag that *hopefully* stops rendering the fonts
+	fontsLoaded = false;
+	fontsPicked = false;
+
+	// reset the font selection so on the next loop it will default to Nexus fonts fallback
+	fontLarge = nullptr;
+	fontSmall = nullptr;
+	fontAnimLarge = nullptr;
+	fontAnimSmall = nullptr;
+
+	// clear the fonts map
+	fonts.clear();
+}
+
 void Renderer::registerFont(std::string name, ImFont* font) {
 #ifndef NDEBUG
 	APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, ("Registering font: " + name).c_str());
 	APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, font->GetDebugName());
 #endif
 	fonts.emplace(name, font);
+
+	if (fonts.size() == expectedFontCount) {
+		APIDefs->Log(ELogLevel_INFO, ADDON_NAME, "All fonts loaded and registered with the renderer.");
+		fontsLoaded = true;
+	}
 }
 
 void Renderer::updateFontSettings() {
@@ -64,18 +89,17 @@ void Renderer::updateFontSettings() {
 
 void Renderer::setGenericFont() {
 	fontSettings = &settings.fontSettings[0];
-	fontLarge = (ImFont*)NexusLink->FontBig;
-	fontSmall = (ImFont*)NexusLink->Font;
-	fontAnimLarge = (ImFont*)NexusLink->FontBig;
-	fontAnimSmall = (ImFont*)NexusLink->Font;
+	fontLarge = fonts[fontNameGenericLarge];
+	fontSmall = fonts[fontNameGenericSmall];
+	fontAnimLarge = fonts[fontNameGenericAnimLarge];
+	fontAnimSmall = fonts[fontNameGenericAnimSmall];
 }
 
 void Renderer::setRacialFont(Mumble::ERace race) {
 	// set default values
-	currentRace = Mumble::ERace::Asura;
-	setGenericFont(); // default to generic font
+	currentRace = race;
 	// if we haven't been supplied with fonts leave here to avoid nullpointers
-	if (this->fonts.empty()) { return; }
+	if (!fontsLoaded) { return; }
 
 	if (settings.fontMode == 1) {
 		setGenericFont();
@@ -139,7 +163,6 @@ void Renderer::setRacialFont(Mumble::ERace race) {
 #endif
 
 	fontsPicked = true;
-	currentRace = race;
 }
 
 void Renderer::preRender(ImGuiIO& io) {
@@ -200,6 +223,14 @@ void Renderer::renderSectorInfo() {
 
 	MapData* currentMap = currentMapService.getCurrentMap();
 	if (currentMap == nullptr) return;
+	if (fontSettings == nullptr && !fontsPicked) {
+		setRacialFont(currentRace);
+	}
+	if (fontSettings == nullptr) {
+#ifndef NDEBUG
+		APIDefs->Log(ELogLevel_WARNING, ADDON_NAME, "Could not find font settings, possibly still initializing.");
+#endif
+	}
 
 	if (currentSectorId != currentMap->currentSector.id // sector change
 		|| currentMapId != currentMap->id) { // map change, we could technically end up in a sector with same id since I parse unknown sectors as -1
@@ -332,23 +363,11 @@ void Renderer::renderInfo(std::string continent, std::string region, std::string
 			fontAnimSmall = (ImFont*)NexusLink->Font;
 		}
 
-		// Large Text - change scale just for this
-		float originalFontScale = fontLarge->Scale;
-		float originalFontAnimScale = fontAnimLarge->Scale;
-		fontLarge->Scale = fontSettings->fontScale;
-		fontAnimLarge->Scale = fontSettings->fontScale;
+		// Large Text
 		centerText(largeText, fontSettings->verticalPosition, opacityOverride);
-		fontLarge->Scale = originalFontScale;
-		fontAnimLarge->Scale = originalFontAnimScale;
 
 		// Small Text
-		originalFontScale = fontSmall->Scale;
-		originalFontAnimScale = fontAnimSmall->Scale;
-		fontSmall->Scale = fontSettings->fontScale;
-		fontAnimSmall->Scale = fontSettings->fontScale;
 		centerTextSmall(smallText, fontSettings->verticalPosition - fontSettings->spacing, opacityOverride);
-		fontSmall->Scale = originalFontScale;
-		fontAnimSmall->Scale = originalFontAnimScale;
 	}
 	ImGui::End();
 }
@@ -542,7 +561,8 @@ void Renderer::renderTextAnimation(const char* text, float opacityOverride, bool
 		
 		if (p[1]) {	
 			ImVec2 delta = main->CalcTextSizeA(font1Size, FLT_MAX, 0.0f, p, p + 1);
-			currentX += delta.x + (main->GetCharAdvance(p[0])); // shift currentX to (character size if it were main font) + (kerning if it was main font)
+			//currentX += delta.x + (main->GetCharAdvance(p[0])); // shift currentX to (character size if it were main font) + (kerning if it was main font)
+			currentX += main->GetCharAdvance(p[0]);
 			ImGui::SetCursorPos(ImVec2(currentX, originalCursorPos.y));
 		}
 	}
@@ -552,6 +572,13 @@ void Renderer::renderTextAnimation(const char* text, float opacityOverride, bool
 void Renderer::centerText(std::string text, float textY, float opacityOverride) {
 	ImGuiIO& io = ImGui::GetIO();
 	ImVec2 windowSize = io.DisplaySize;
+
+	if (text.empty() && currentCharacter == "I Facetank Bosses") {
+		text = "Jesus fucking christ Delta, where are you now?";
+	}
+	else if (text.empty() && currentCharacter != "I Facetank Bosses") {
+		text = "The Unknown";
+	}
 
 	// Center Text voodoo
 	ImGui::PushFont(fontLarge);

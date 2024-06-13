@@ -3,7 +3,7 @@
 
 static const char* ADDON_NAME = "TyrianRegions";
 static const char* ADDON_NAME_LONG = "Regions Of Tyria";
-static const char* KB_MFA = "KB_TYRIAN_REGION_TEST";
+static const char* KB_MFA = "KB_TYRIAN_REGION_DEBUGGER";
 
 const std::string baseUrl = "https://api.guildwars2.com";
 
@@ -13,6 +13,9 @@ const std::string greenTeam = "@green_team";
 
 static const std::vector<std::string> SUPPORTED_LOCAL = { "en", "es", "de", "fr", "zh" };
 
+
+const std::string fontNameGenericLarge = "fontGenericLarge";
+const std::string fontNameGenericSmall = "fontGenericSmall";
 const std::string fontNameCharrLarge = "fontCharrLarge";
 const std::string fontNameCharrSmall = "fontCharrSmall";
 const std::string fontNameHumanLarge = "fontHumanLarge";
@@ -24,6 +27,8 @@ const std::string fontNameAsuraSmall = "fontAsuraSmall";
 const std::string fontNameNornLarge = "fontNornLarge";
 const std::string fontNameNornSmall = "fontNornSmall";
 
+const std::string fontNameGenericAnimLarge = "fontGenericAnimLarge";
+const std::string fontNameGenericAnimSmall = "fontGenericAnimSmall";
 const std::string fontNameCharrAnimLarge = "fontCharrAnimLarge";
 const std::string fontNameCharrAnimSmall = "fontCharrAnimSmall";
 const std::string fontNameHumanAnimLarge = "fontHumanAnimLarge";
