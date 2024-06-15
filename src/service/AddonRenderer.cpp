@@ -1,16 +1,14 @@
 #include "AddonRenderer.h"
 #include <fstream>
 
-#include <d3d11.h>
-#include "../imgui/imgui_impl_dx11.h"
-#include "../imgui/imgui_impl_win32.h"
-
+#include "AddonInitalize.h"
 
 using json = nlohmann::json;
 
 /* Proto */
 void fade();
 void cancelCurrentAnimation();
+std::string replacePlaceholderTexts(std::string text);
 
 std::thread animationThread;
 std::mutex animMutex;
@@ -93,6 +91,7 @@ void Renderer::setGenericFont() {
 	fontSmall = fonts[fontNameGenericSmall];
 	fontAnimLarge = fonts[fontNameGenericAnimLarge];
 	fontAnimSmall = fonts[fontNameGenericAnimSmall];
+	fontWidget = fonts[fontNameGenericWidget];
 }
 
 void Renderer::setRacialFont(Mumble::ERace race) {
@@ -108,6 +107,7 @@ void Renderer::setRacialFont(Mumble::ERace race) {
 	else if ((settings.fontMode == 0 && race == Mumble::ERace::Asura) || settings.fontMode == 2) {
 		fontLarge = this->fonts[fontNameAsuraLarge];
 		fontSmall = this->fonts[fontNameAsuraSmall];
+		fontWidget = this->fonts[fontNameAsuraWidget];
 
 		fontAnimLarge = this->fonts[fontNameAsuraAnimLarge];
 		fontAnimSmall = this->fonts[fontNameAsuraAnimSmall];
@@ -117,6 +117,7 @@ void Renderer::setRacialFont(Mumble::ERace race) {
 	else if ((settings.fontMode == 0 && race == Mumble::ERace::Charr) || settings.fontMode == 3) {
 		fontLarge = this->fonts[fontNameCharrLarge];
 		fontSmall = this->fonts[fontNameCharrSmall];
+		fontWidget = this->fonts[fontNameCharrWidget];
 
 		fontAnimLarge = this->fonts[fontNameCharrAnimLarge];
 		fontAnimSmall = this->fonts[fontNameCharrAnimSmall];
@@ -126,6 +127,7 @@ void Renderer::setRacialFont(Mumble::ERace race) {
 	else if ((settings.fontMode == 0 && race == Mumble::ERace::Human) || settings.fontMode == 4) {
 		fontLarge = this->fonts[fontNameHumanLarge];
 		fontSmall = this->fonts[fontNameHumanSmall];
+		fontWidget = this->fonts[fontNameHumanWidget];
 
 		fontAnimLarge = this->fonts[fontNameHumanAnimLarge];
 		fontAnimSmall = this->fonts[fontNameHumanAnimSmall];
@@ -135,6 +137,7 @@ void Renderer::setRacialFont(Mumble::ERace race) {
 	else if ((settings.fontMode == 0 && race == Mumble::ERace::Norn) || settings.fontMode == 5) {
 		fontLarge = this->fonts[fontNameNornLarge];
 		fontSmall = this->fonts[fontNameNornSmall];
+		fontWidget = this->fonts[fontNameNornWidget];
 
 		fontAnimLarge = this->fonts[fontNameNornAnimLarge];
 		fontAnimSmall = this->fonts[fontNameNornAnimSmall];
@@ -144,6 +147,7 @@ void Renderer::setRacialFont(Mumble::ERace race) {
 	else if ((settings.fontMode == 0 && race == Mumble::ERace::Sylvari) || settings.fontMode == 6) {
 		fontLarge = this->fonts[fontNameSylvariLarge];
 		fontSmall = this->fonts[fontNameSylvariSmall];
+		fontWidget = this->fonts[fontNameSylvariWidget];
 
 		fontAnimLarge = this->fonts[fontNameSylvariAnimLarge];
 		fontAnimSmall = this->fonts[fontNameSylvariAnimSmall];
@@ -156,6 +160,8 @@ void Renderer::setRacialFont(Mumble::ERace race) {
 		APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, ("FontLarge: " + std::string(fontLarge->GetDebugName())).c_str());
 	if(fontSmall != nullptr)
 		APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, ("FontSmall: " + std::string(fontSmall->GetDebugName())).c_str());
+	if (fontWidget != nullptr)
+		APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, ("FontWidget: " + std::string(fontWidget->GetDebugName())).c_str());
 	if(fontAnimLarge != nullptr)
 		APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, ("FontAnimLarge: " + std::string(fontAnimLarge->GetDebugName())).c_str());
 	if(fontAnimSmall != nullptr) 
@@ -177,6 +183,7 @@ void Renderer::render() {
 	if (unloading) return;
 	renderSampleInfo();
 	renderSectorInfo();
+	renderMinimapWidget();
 	renderDebugInfo();
 }
 
@@ -213,23 +220,84 @@ void Renderer::renderSampleInfo() {
 	setRacialFont(originalPick);
 }
 
-void Renderer::renderSectorInfo() {
-
-	// TODO possible skips for render:
-	// - when in map view
-	// - when in competitive modes
-	// - when idk lmao
-	// TODO possible skips into settings?
+void Renderer::renderMinimapWidget() {
+	if (!settings.widgetEnabled) return;
+	if (!NexusLink->IsGameplay) return;
+	if (MumbleLink->Context.IsMapOpen) return;
 
 	MapData* currentMap = currentMapService.getCurrentMap();
 	if (currentMap == nullptr) return;
 	if (fontSettings == nullptr && !fontsPicked) {
+		setRacialFont(currentRace);
+	} else if (!fontsPicked) {
 		setRacialFont(currentRace);
 	}
 	if (fontSettings == nullptr) {
 #ifndef NDEBUG
 		APIDefs->Log(ELogLevel_WARNING, ADDON_NAME, "Could not find font settings, possibly still initializing.");
 #endif
+		return;
+	}
+
+	ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar |
+		ImGuiWindowFlags_NoCollapse |
+		ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoInputs |
+		ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoScrollbar;
+
+	if (fontWidget == nullptr) {
+		fontWidget = (ImFont*)NexusLink->FontBig;
+		APIDefs->Log(ELogLevel_WARNING, ADDON_NAME, "FontWidget null, fallback to Nexus default font.");
+	}
+	else if (!fontWidget->IsLoaded()) {
+		fontWidget = (ImFont*)NexusLink->FontBig;
+		APIDefs->Log(ELogLevel_WARNING, ADDON_NAME, "FontWidget not loaded, fallback to Nexus default font.");
+	}
+
+	std::string output = fontSettings->widgetDisplayFormat;
+	output = replacePlaceholderTexts(output);
+
+	// calculate text size
+	ImGui::PushFont(fontWidget);
+	ImVec2 textSize = ImGui::CalcTextSize(output.c_str());
+	ImGui::PopFont();
+	ImVec4 textColor = ImVec4(fontSettings->widgetFontColor[0], fontSettings->widgetFontColor[1], fontSettings->widgetFontColor[2], 1.0f);
+	ImVec4 shadowColor = ImVec4(0, 0, 0, 1);
+
+	ImVec2 widgetPos = ImVec2(settings.widgetPositionX, settings.widgetPositionY);
+	ImVec2 widgetSize = ImVec2(settings.widgetWidth, textSize.y);
+	ImGui::SetNextWindowPos(widgetPos);
+	ImGui::SetNextWindowSize(widgetSize);
+	ImGui::SetNextWindowBgAlpha(settings.widgetBackgroundOpacity);
+
+	if (ImGui::Begin("MiniSectorWidget", (bool*)0, flags)) {
+		ImGui::PushFont(fontWidget);
+		float textX = (settings.widgetWidth - textSize.x) / 2.0f;
+		ImGui::SetCursorPosX(textX + 1.0f);
+		ImGui::SetCursorPosY(1.0f);
+		ImGui::TextColored(shadowColor, output.c_str());
+		ImGui::SetCursorPosX(textX);
+		ImGui::SetCursorPosY(0.0f);
+		ImGui::TextColored(textColor, output.c_str());
+		ImGui::PopFont();
+		ImGui::End();
+	}
+}
+
+void Renderer::renderSectorInfo() {
+	if (!settings.enablePopup) return; 
+
+	MapData* currentMap = currentMapService.getCurrentMap();
+	if (currentMap == nullptr) return;
+	if (fontSettings == nullptr && !fontsPicked) {
+		setRacialFont(currentRace);
+	} 
+	if (fontSettings == nullptr) {
+#ifndef NDEBUG
+		APIDefs->Log(ELogLevel_WARNING, ADDON_NAME, "Could not find font settings, possibly still initializing.");
+#endif
+		return;
 	}
 
 	if (currentSectorId != currentMap->currentSector.id // sector change
@@ -274,7 +342,7 @@ void Renderer::renderInfo(std::string continent, std::string region, std::string
 		std::string smallText = std::string(fontSettings->displayFormatSmall);
 		// Before anyone flames me for not doing lower/upper case here: the display format might have user defined text that shouldn't be casted
 		// and I am way too lazy to parse only my placeholders to u/lcase.
-		replaceAll(smallText, "@c", continent);
+		/*replaceAll(smallText, "@c", continent);
 		replaceAll(smallText, "@C", continent);
 		replaceAll(smallText, "@r", region);
 		replaceAll(smallText, "@R", region);
@@ -282,11 +350,11 @@ void Renderer::renderInfo(std::string continent, std::string region, std::string
 		replaceAll(smallText, "@M", map);
 		replaceAll(smallText, "@s", sector);
 		replaceAll(smallText, "@S", sector);
-
+		*/
 		std::string largeText = std::string(fontSettings->displayFormatLarge);
 		if (largeText.empty()) largeText = "@s"; // default if empty
 		// See reasoning above. Still too lazy, nothing has changed in the past 5 or so seconds.
-		replaceAll(largeText, "@c", continent);
+		/*replaceAll(largeText, "@c", continent);
 		replaceAll(largeText, "@C", continent);
 		replaceAll(largeText, "@r", region);
 		replaceAll(largeText, "@R", region);
@@ -323,6 +391,10 @@ void Renderer::renderInfo(std::string continent, std::string region, std::string
 		replaceAll(largeText, redTeam, redTeamText);
 		replaceAll(largeText, blueTeam, blueTeamText);
 		replaceAll(largeText, greenTeam, greenTeamText);
+		*/
+
+		smallText = replacePlaceholderTexts(smallText);
+		largeText = replacePlaceholderTexts(largeText);
 
 		if (!fontsPicked) {
 			setRacialFont(currentRace);
@@ -684,4 +756,45 @@ void fade() {
 #ifndef NDEBUG
 	APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, "Animation thread complete.");
 #endif
+}
+
+std::string replacePlaceholderTexts(std::string text) {
+	MapData* currentMap = currentMapService.getCurrentMap();
+
+	replaceAll(text, "@c", currentMap->continentName);
+	replaceAll(text, "@C", currentMap->continentName);
+	replaceAll(text, "@r", currentMap->regionName);
+	replaceAll(text, "@R", currentMap->regionName);
+	replaceAll(text, "@m", currentMap->name);
+	replaceAll(text, "@M", currentMap->name);
+	replaceAll(text, "@s", currentMap->currentSector.name);
+	replaceAll(text, "@S", currentMap->currentSector.name);
+
+	// Replace WvW Team placeholders
+	// guess what? still to lazy to do it properly. what is maintenance, right?
+	std::string redTeamText, blueTeamText, greenTeamText;
+	redTeamText = "Red";
+	blueTeamText = "Blue";
+	greenTeamText = "Green";
+	if (match != nullptr) {
+		gw2api::worlds::world* redWorld = worldInventory->getWorld(GetLocaleAsString(settings.locale), match->worlds.red);
+		if (redWorld != nullptr) {
+			redTeamText = redWorld->name;
+		}
+
+		gw2api::worlds::world* blueWorld = worldInventory->getWorld(GetLocaleAsString(settings.locale), match->worlds.blue);
+		if (blueWorld != nullptr) {
+			blueTeamText = blueWorld->name;
+		}
+
+		gw2api::worlds::world* greenWorld = worldInventory->getWorld(GetLocaleAsString(settings.locale), match->worlds.green);
+		if (greenWorld != nullptr) {
+			greenTeamText = greenWorld->name;
+		}
+	}
+	replaceAll(text, redTeam, redTeamText);
+	replaceAll(text, blueTeam, blueTeamText);
+	replaceAll(text, greenTeam, greenTeamText);
+	
+	return text;
 }

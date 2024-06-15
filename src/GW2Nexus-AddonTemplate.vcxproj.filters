@@ -81,4 +81,8 @@
     <Font Include="resources\animfont_generic.ttf" />
     <Font Include="resources\mapfont_generic.ttf" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="samples\sample_norn.png" />
+    <Image Include="samples\settings.png" />
+  </ItemGroup>
 </Project>

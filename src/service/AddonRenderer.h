@@ -30,10 +30,12 @@ private:
 	ImFont* fontSmall = nullptr;
 	ImFont* fontAnimLarge = nullptr;
 	ImFont* fontAnimSmall = nullptr;
+	ImFont* fontWidget = nullptr;
 
 	/* Render subfunctions */
 	void renderSampleInfo();
 	void renderSectorInfo();
+	void renderMinimapWidget();
 	void renderInfo(std::string continent, std::string region, std::string map, std::string sector, float opacityOverride);
 	void renderDebugInfo();
 

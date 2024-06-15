@@ -256,6 +256,10 @@
     <Font Include="resources\mapfont_norn.ttf" />
     <Font Include="resources\mapfont_sylvari.ttf" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="samples\sample_norn.png" />
+    <Image Include="samples\settings.png" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

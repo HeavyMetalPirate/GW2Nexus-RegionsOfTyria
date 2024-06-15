@@ -88,6 +88,10 @@ struct RacialFontSettings {
     float spacing;
     float fontScale;
     float fontColor[3];
+
+    std::string widgetDisplayFormat;
+    float widgetFontSize;
+    float widgetFontColor[3];
 };
 inline void to_json(json& j, const RacialFontSettings& s) {
     j = json{
@@ -99,7 +103,10 @@ inline void to_json(json& j, const RacialFontSettings& s) {
         {"verticalPosition", s.verticalPosition},
         {"spacing", s.spacing},
         {"fontScale", s.fontScale},
-        {"fontColor", s.fontColor}
+        {"fontColor", s.fontColor},
+        {"widgetDisplayFormat", s.widgetDisplayFormat},
+        {"widgetFontSize", s.widgetFontSize},
+        {"widgetFontColor", s.widgetFontColor}
     };
 }
 inline void from_json(const json& j, RacialFontSettings& s) {
@@ -159,12 +166,42 @@ inline void from_json(const json& j, RacialFontSettings& s) {
         s.fontColor[1] = 255.0f;
         s.fontColor[2] = 255.0f;
     }
+    if (j.contains("fontColor")) {
+        j.at("fontColor").get_to(s.fontColor);
+    }
+    else {
+        s.fontColor[0] = 255.0f;
+        s.fontColor[1] = 255.0f;
+        s.fontColor[2] = 255.0f;
+    }
+    if (j.contains("widgetDisplayFormat")) {
+        j.at("widgetDisplayFormat").get_to(s.widgetDisplayFormat);
+    }
+    else {
+        s.widgetDisplayFormat = "@s";
+    }
+    if (j.contains("widgetFontSize")) {
+        j.at("widgetFontSize").get_to(s.widgetFontSize);
+    }
+    else {
+        s.widgetFontSize = 20.0f;
+    }
+    if (j.contains("widgetFontColor")) {
+        j.at("widgetFontColor").get_to(s.widgetFontColor);
+    }
+    else {
+        s.widgetFontColor[0] = 255.0f;
+        s.widgetFontColor[1] = 255.0f;
+        s.widgetFontColor[2] = 255.0f;
+    }
 }
 
 /// <summary>
 /// Settings Struct & JSON functionality
 /// </summary>
 struct Settings {
+    int fontsVersion;
+
     Locale locale;
     
     // 0 = generic, 1 = asura, 2 = charr, 3 = human, 4 = norn, 5 = sylvari
@@ -176,6 +213,14 @@ struct Settings {
     // TODO settings for font overrides / modes i.e. "use racial fonts", "use just font of race X or generic font" etc.
     int fontMode;
     bool disableAnimations;
+    bool enablePopup;
+
+    // Widget generic stuff
+    bool widgetEnabled;
+    float widgetPositionX;
+    float widgetPositionY;
+    float widgetWidth;
+    float widgetBackgroundOpacity;
 
     // legacy display settings, deprecated
     std::string displayFormatSmall;
@@ -188,19 +233,38 @@ struct Settings {
 };
 inline void to_json(json& j, const Settings& settings) {
     j = json{
+        {"fontsVersion", settings.fontsVersion},
         {"locale", settings.locale},
         {"worldId", settings.worldId},
         {"fontMode", settings.fontMode},
+        {"enablePopup", settings.enablePopup},
         {"disableAnimations", settings.disableAnimations},
-        {"fontSettings", settings.fontSettings}
+        {"fontSettings", settings.fontSettings},
+        {"widgetEnabled", settings.widgetEnabled},
+        {"widgetPositionX", settings.widgetPositionX},
+        {"widgetPositionY", settings.widgetPositionY},
+        {"widgetWidth", settings.widgetWidth},
+        {"widgetBackgroundOpacity", settings.widgetBackgroundOpacity}
     };
 }
 inline void from_json(const json& j, Settings& settings) {
+    if (j.contains("fontsVersion")) {
+        j.at("fontsVersion").get_to(settings.fontsVersion);
+    }
+    else {
+        settings.fontsVersion = 0;
+    }
     if (j.contains("locale")) {
         j.at("locale").get_to(settings.locale);
     }
     else {
         settings.locale = Locale::En; // Default
+    }
+    if (j.contains("enablePopup")) {
+        j.at("enablePopup").get_to(settings.enablePopup);
+    }
+    else {
+        settings.enablePopup = true;
     }
     if (j.contains("displayFormatSmall")) {
         j.at("displayFormatSmall").get_to(settings.displayFormatSmall);
@@ -284,6 +348,36 @@ inline void from_json(const json& j, Settings& settings) {
 
             settings.fontSettings[i] = s;
         }
+    }
+    if (j.contains("widgetEnabled")) {
+        j.at("widgetEnabled").get_to(settings.widgetEnabled);
+    }
+    else {
+        settings.widgetEnabled = false;
+    }
+    if (j.contains("widgetPositionX")) {
+        j.at("widgetPositionX").get_to(settings.widgetPositionX);
+    }
+    else {
+        settings.widgetPositionX = 100.0f;
+    }
+    if (j.contains("widgetPositionY")) {
+        j.at("widgetPositionY").get_to(settings.widgetPositionY);
+    }
+    else {
+        settings.widgetPositionY = 100.0f;
+    }
+    if (j.contains("widgetWidth")) {
+        j.at("widgetWidth").get_to(settings.widgetWidth);
+    }
+    else {
+        settings.widgetWidth = 200.0f;
+    }
+    if (j.contains("widgetBackgroundOpacity")) {
+        j.at("widgetBackgroundOpacity").get_to(settings.widgetBackgroundOpacity);
+    }
+    else {
+        settings.widgetBackgroundOpacity = 0.8f;
     }
 }
 /// ================================================================================
