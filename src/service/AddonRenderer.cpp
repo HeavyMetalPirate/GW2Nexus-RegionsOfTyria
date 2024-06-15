@@ -8,7 +8,7 @@ using json = nlohmann::json;
 /* Proto */
 void fade();
 void cancelCurrentAnimation();
-std::string replacePlaceholderTexts(std::string text);
+std::string replacePlaceholderTexts(std::string text, bool useSampleText);
 
 std::thread animationThread;
 std::mutex animMutex;
@@ -188,6 +188,7 @@ void Renderer::render() {
 }
 
 void Renderer::renderSampleInfo() {
+
 	bool renderSample = false;
 	int raceIndex = 0;
 	for (int i = 0; i < 6; i++) {
@@ -213,8 +214,17 @@ void Renderer::renderSampleInfo() {
 		case 5: setRacialFont(Mumble::ERace::Sylvari); break;
 		default: setGenericFont();
 	}
+
+	// sanity check
+	if (fontSettings == nullptr) {
+#ifndef NDEBUG
+		APIDefs->Log(ELogLevel_WARNING, ADDON_NAME, "Could not find font settings, possibly still initializing.");
+#endif
+		return;
+	}
+
 	// render info with generic texts
-	renderInfo("Continent", "Region", "Map", "Sector", 1.0f);
+	renderInfo(1.0f, true);
 
 	// reset to the originalPick
 	setRacialFont(originalPick);
@@ -256,7 +266,7 @@ void Renderer::renderMinimapWidget() {
 	}
 
 	std::string output = fontSettings->widgetDisplayFormat;
-	output = replacePlaceholderTexts(output);
+	output = replacePlaceholderTexts(output, false);
 
 	// calculate text size
 	ImGui::PushFont(fontWidget);
@@ -319,10 +329,10 @@ void Renderer::renderSectorInfo() {
 	}
 	
 	if (!animating) return;
-	renderInfo(currentMap->continentName, currentMap->regionName, currentMap->name, currentMap->currentSector.name, opacity);
+	renderInfo(opacity, false);
 }
 
-void Renderer::renderInfo(std::string continent, std::string region, std::string map, std::string sector, float opacityOverride) {
+void Renderer::renderInfo(float opacityOverride, bool useSampleText) {
 	ImGuiIO& io = ImGui::GetIO();
 	ImVec2 windowSize = io.DisplaySize;
 	// Make the next Window go over the entire screen for easier calculations
@@ -338,63 +348,13 @@ void Renderer::renderInfo(std::string continent, std::string region, std::string
 		ImGuiWindowFlags_NoInputs |
 		ImGuiWindowFlags_NoMouseInputs))
 	{
-		// Figure out the texts to display based on the templates provided
+
 		std::string smallText = std::string(fontSettings->displayFormatSmall);
-		// Before anyone flames me for not doing lower/upper case here: the display format might have user defined text that shouldn't be casted
-		// and I am way too lazy to parse only my placeholders to u/lcase.
-		/*replaceAll(smallText, "@c", continent);
-		replaceAll(smallText, "@C", continent);
-		replaceAll(smallText, "@r", region);
-		replaceAll(smallText, "@R", region);
-		replaceAll(smallText, "@m", map);
-		replaceAll(smallText, "@M", map);
-		replaceAll(smallText, "@s", sector);
-		replaceAll(smallText, "@S", sector);
-		*/
 		std::string largeText = std::string(fontSettings->displayFormatLarge);
 		if (largeText.empty()) largeText = "@s"; // default if empty
-		// See reasoning above. Still too lazy, nothing has changed in the past 5 or so seconds.
-		/*replaceAll(largeText, "@c", continent);
-		replaceAll(largeText, "@C", continent);
-		replaceAll(largeText, "@r", region);
-		replaceAll(largeText, "@R", region);
-		replaceAll(largeText, "@m", map);
-		replaceAll(largeText, "@M", map);
-		replaceAll(largeText, "@s", sector);
-		replaceAll(largeText, "@S", sector);
 
-		// Replace WvW Team placeholders
-		// guess what? still to lazy to do it properly. what is maintenance, right?
-		std::string redTeamText, blueTeamText, greenTeamText;
-		redTeamText = "Red";
-		blueTeamText = "Blue";
-		greenTeamText = "Green";
-		if (match != nullptr) {
-			gw2api::worlds::world* redWorld = worldInventory->getWorld(GetLocaleAsString(settings.locale), match->worlds.red);
-			if (redWorld != nullptr) {
-				redTeamText = redWorld->name;
-			}
-
-			gw2api::worlds::world* blueWorld = worldInventory->getWorld(GetLocaleAsString(settings.locale), match->worlds.blue);
-			if (blueWorld != nullptr) {
-				blueTeamText = blueWorld->name;
-			}
-			
-			gw2api::worlds::world* greenWorld = worldInventory->getWorld(GetLocaleAsString(settings.locale), match->worlds.green);
-			if (greenWorld != nullptr) {
-				greenTeamText = greenWorld->name;
-			}
-		}
-		replaceAll(smallText, redTeam, redTeamText);
-		replaceAll(smallText, blueTeam, blueTeamText);
-		replaceAll(smallText, greenTeam, greenTeamText);
-		replaceAll(largeText, redTeam, redTeamText);
-		replaceAll(largeText, blueTeam, blueTeamText);
-		replaceAll(largeText, greenTeam, greenTeamText);
-		*/
-
-		smallText = replacePlaceholderTexts(smallText);
-		largeText = replacePlaceholderTexts(largeText);
+		smallText = replacePlaceholderTexts(smallText, useSampleText);
+		largeText = replacePlaceholderTexts(largeText, useSampleText);
 
 		if (!fontsPicked) {
 			setRacialFont(currentRace);
@@ -603,6 +563,8 @@ void Renderer::renderTextAnimation(const char* text, float opacityOverride, bool
 
 	// Calculate the scaling factor for font2
 	float scalingFactor = font1Size / font2Size;
+	if (scalingFactor == 0.0f) scalingFactor = 1.0f;
+
 	float originalSecondaryScaling = secondary->Scale;
 	secondary->Scale = scalingFactor;
 
@@ -758,17 +720,32 @@ void fade() {
 #endif
 }
 
-std::string replacePlaceholderTexts(std::string text) {
+std::string replacePlaceholderTexts(std::string text, bool useSampleText) {
+
+	std::string continent, region, map, sector;
 	MapData* currentMap = currentMapService.getCurrentMap();
 
-	replaceAll(text, "@c", currentMap->continentName);
-	replaceAll(text, "@C", currentMap->continentName);
-	replaceAll(text, "@r", currentMap->regionName);
-	replaceAll(text, "@R", currentMap->regionName);
-	replaceAll(text, "@m", currentMap->name);
-	replaceAll(text, "@M", currentMap->name);
-	replaceAll(text, "@s", currentMap->currentSector.name);
-	replaceAll(text, "@S", currentMap->currentSector.name);
+	if (useSampleText || currentMap == nullptr) {
+		continent = "Continent";
+		region = "Region";
+		map = "Map";
+		sector = "Sector";
+	}
+	else {
+		continent = currentMap->continentName;
+		region = currentMap->regionName;
+		map = currentMap->name;
+		sector = currentMap->currentSector.name;
+	}
+
+	replaceAll(text, "@c", continent);
+	replaceAll(text, "@C", continent);
+	replaceAll(text, "@r", region);
+	replaceAll(text, "@R", region);
+	replaceAll(text, "@m", map);
+	replaceAll(text, "@M", map);
+	replaceAll(text, "@s", sector);
+	replaceAll(text, "@S", sector);
 
 	// Replace WvW Team placeholders
 	// guess what? still to lazy to do it properly. what is maintenance, right?

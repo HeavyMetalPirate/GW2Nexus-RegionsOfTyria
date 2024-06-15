@@ -36,7 +36,7 @@ private:
 	void renderSampleInfo();
 	void renderSectorInfo();
 	void renderMinimapWidget();
-	void renderInfo(std::string continent, std::string region, std::string map, std::string sector, float opacityOverride);
+	void renderInfo(float opacityOverride, bool useSampleText);
 	void renderDebugInfo();
 
 	void renderTextAnimation(const char* text, float opacityOverride, bool large, bool isShadow);
