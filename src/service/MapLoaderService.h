@@ -34,6 +34,7 @@ private:
 	void unpackMaps();
 
 	void loadWorldsFromAPI();
+	void loadAlliancesFromStorage();
 };
 
 #endif /* MAP_LOADER_SERVICE_H */

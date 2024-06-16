@@ -98,6 +98,7 @@ static void UnpackFonts(bool overwrite) {
 
 static void unpackResources() {
 	unpackResource(IDR_MAPS_ZIP, "ZIP", "Maps.zip");
+	unpackResource(IDR_JSON_ALLIANCES_EN, "JSON", "alliances_en.json");
 	UnpackFonts(false);
 }
 

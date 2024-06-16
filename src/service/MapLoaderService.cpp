@@ -65,6 +65,7 @@ void MapLoaderService::initializeMapStorage() {
 			// Preload some data for WvW maps...
 			// Load data for worlds
 			loadWorldsFromAPI();
+			loadAlliancesFromStorage();
 			// Load data from WvW matches
 			loadWvWMatchFromAPI();
 			// Preload from storage to save time
@@ -79,8 +80,61 @@ void MapLoaderService::initializeMapStorage() {
 				APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Unknown exception loading maps from API.");
 			}
 		});
+		initializerThread.detach();
 	}
 
+}
+
+void MapLoaderService::loadAlliancesFromStorage() {
+	try {
+		// Get addon directory
+		std::string pathFolder = APIDefs->GetAddonDirectory(ADDON_NAME);
+		// Create folder if not exist
+		if (!fs::exists(pathFolder)) {
+			try {
+				fs::create_directory(pathFolder);
+			}
+			catch (const std::exception& e) {
+				std::string message = "Could not create addon directory: ";
+				message.append(pathFolder);
+				APIDefs->Log(ELogLevel::ELogLevel_CRITICAL, ADDON_NAME, message.c_str());
+
+				// Suppress the warning for the unused variable 'e'
+#pragma warning(suppress: 4101)
+				e;
+			}
+		}
+
+		for (auto lang : SUPPORTED_LOCAL) {
+			if (unloading) return;
+			// Load events from data.json
+			std::string pathData = pathFolder + "/alliances_en.json"; // TODO base off locale once we have them all
+			if (fs::exists(pathData)) {
+				std::ifstream dataFile(pathData);
+
+				if (dataFile.is_open()) {
+					json jsonData;
+					dataFile >> jsonData;
+					dataFile.close();
+
+					std::vector<gw2api::worlds::alliance> alliances = jsonData.get<std::vector<gw2api::worlds::alliance>>();
+
+					for (auto alliance : alliances) {
+						gw2api::worlds::alliance* a = new gw2api::worlds::alliance(alliance);
+						worldInventory->addAlliance(lang, a);
+					}
+				}
+			}
+		}
+	}
+	catch (const std::exception& e) {
+		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Exception in alliance initialization thread.");
+		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, e.what());
+	}
+	catch (...) {
+		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Unknown exception in alliance initialization thread.");
+	}
+	APIDefs->Log(ELogLevel::ELogLevel_INFO, ADDON_NAME, "Alliance loading from storage complete.");
 }
 
 void MapLoaderService::loadWorldsFromAPI() {

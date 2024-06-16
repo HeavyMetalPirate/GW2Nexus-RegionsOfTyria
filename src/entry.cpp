@@ -90,6 +90,7 @@ Settings settings = {
 	100.0f, // widgetPosY
 	200.0f, // widgetWidt
 	0.8f, // widgetBackgroundOpacity
+	0, // widgetTextAlign
 
 	// deprecated Legacy settings
 	"@c / @r / @m",
@@ -138,8 +139,8 @@ extern "C" __declspec(dllexport) AddonDefinition* GetAddonDef()
 	AddonDef.Name = "Regions Of Tyria";
 	AddonDef.Version.Major = 1;
 	AddonDef.Version.Minor = 4;
-	AddonDef.Version.Build = 1;
-	AddonDef.Version.Revision = 1;
+	AddonDef.Version.Build = 2;
+	AddonDef.Version.Revision = 0;
 	AddonDef.Author = "HeavyMetalPirate.2695";
 	AddonDef.Description = "Displays the current sector whenever you cross borders, much like your favorite (MMO)RPG does.";
 	AddonDef.Load = AddonLoad;
@@ -173,6 +174,14 @@ void AddonLoad(AddonAPI* aApi)
 	APIDefs->RegisterKeybindWithString(KB_MFA, ProcessKeybind, "CTRL+ALT+SHIFT+L");
 	APIDefs->AddSimpleShortcut(ADDON_NAME_LONG, AddonShortcut);
 
+	renderer = Renderer();
+	mapLoader = MapLoaderService();
+	mapInventory = new MapInventory();
+	worldInventory = new WorldInventory();
+
+	// Register Events
+	APIDefs->SubscribeEvent("EV_MUMBLE_IDENTITY_UPDATED", HandleIdentityChanged);
+
 	// Unpack the addon resources to the addon data
 	unpackResources();
 	LoadSettings();
@@ -184,25 +193,18 @@ void AddonLoad(AddonAPI* aApi)
 		StoreSettings();
 	}
 
-	// Register Events
-	APIDefs->SubscribeEvent("EV_MUMBLE_IDENTITY_UPDATED", HandleIdentityChanged);
-
-	renderer = Renderer();
-	mapLoader = MapLoaderService();
-	mapInventory = new MapInventory();
-	worldInventory = new WorldInventory();
+	// Initialize the custom fonts
+	loadFonts();
 
 	// Start filling the inventory in the background
 	mapLoader.initializeMapStorage();
-
-	// Initialize the custom fonts
-	loadFonts();
 
 	// Add an options window and a regular render callback - always do this at the end I guess
 	APIDefs->RegisterRender(ERenderType_PreRender, PreRender);
 	APIDefs->RegisterRender(ERenderType_PostRender, PostRender);
 	APIDefs->RegisterRender(ERenderType_OptionsRender, AddonOptions);
 	APIDefs->RegisterRender(ERenderType_Render, AddonRender);
+
 	// Log initialize
 	APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, "<c=#00ff00>Initialize complete.</c>");
 }
@@ -331,6 +333,9 @@ void ReceiveFont(const char* aIdentifier, void* aFont) {
 ///----------------------------------------------------------------------------------------------------
 void AddonUnload()
 {
+
+	StoreSettings();
+
 	// Disable everything that listens to this global
 	unloading = true;
 	mapLoader.unload();
@@ -348,8 +353,6 @@ void AddonUnload()
 	APIDefs->DeregisterRender(AddonOptions);
 
 	releaseFonts();
-
-	StoreSettings();
 
 	APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, "<c=#ff0000>Signing off</c>, it was an honor commander.");
 }
@@ -446,6 +449,14 @@ void AddonOptions()
 	ImGui::DragFloat("Widget Width", &settings.widgetWidth, 1.0f, 1, ImGui::GetIO().DisplaySize.x / 2);
 	ImGui::DragFloat("Widget Background", &settings.widgetBackgroundOpacity, 0.05f, 0.0f, 1.0f);
 
+	static const char* textAlignComboItems[3];
+	textAlignComboItems[0] = "Center";
+	textAlignComboItems[1] = "Left";
+	textAlignComboItems[2] = "Right";
+	if (ImGui::Combo("Widget Text Alignment", &settings.widgetTextAlign, textAlignComboItems, IM_ARRAYSIZE(textAlignComboItems))) {
+
+	}
+
 	ImGui::Separator();
 	ImGui::Text("Display & Styling");
 
@@ -470,6 +481,7 @@ void AddonOptions()
 		for (auto& fs : settings.fontSettings) {
 			++i;
 			if (ImGui::BeginTabItem(fs.race.c_str())) {
+				ImGui::Text(("Popup Text Settings for font " + fs.race).c_str());
 
 				if (ImGui::Checkbox("Show sample text", &showTemplate[i])) {
 					if (showTemplate[i]) {
@@ -524,7 +536,7 @@ void AddonOptions()
 				ImGui::ColorEdit3("Font Color", fs.fontColor);
 
 				ImGui::Separator();
-				ImGui::Text("Widget Settings");
+				ImGui::Text(("Widget Settings for font " + fs.race).c_str());
 				char bufferWidget[256];
 				strncpy_s(bufferWidget, fs.widgetDisplayFormat.c_str(), sizeof(bufferWidget));
 				if (ImGui::InputText("Widget Display Format", bufferWidget, sizeof(bufferWidget))) {
@@ -569,15 +581,21 @@ void AddonOptions()
 
 	ImGui::Separator();
 	ImGui::Text("WvW specific settings");
-	gw2api::worlds::world* current = worldInventory->getWorld(GetLocaleAsString(settings.locale), settings.worldId);
+	gw2api::worlds::world* currentWorld = worldInventory->getWorld(GetLocaleAsString(settings.locale), settings.worldId);
+	gw2api::worlds::alliance* currentAlliance = worldInventory->getAlliance(GetLocaleAsString(settings.locale), settings.worldId);
 
-	if (current == nullptr) {
-		ImGui::Text("No WvW world selected as home.");
+	if (currentWorld == nullptr && currentAlliance == nullptr) {
+		ImGui::Text("No WvW alliance selected as home.");
+	}
+	else if(currentWorld != nullptr) {
+		ImGui::Text(("Current alliance selection: " + currentWorld->name).c_str());
+		ImGui::TextColored({ 255,0,0,1 }, "Please select your alliance below to update to the proper team names!");
 	}
 	else {
-		ImGui::Text(("Current world selection: " + current->name).c_str());
+		ImGui::Text(("Current alliance selection: " + currentAlliance->name).c_str());
 	}
-	if (ImGui::Button("Server Selection")) {
+
+	if (ImGui::Button("Alliance Selection")) {
 		showServerSelection = !showServerSelection;
 	}
 
@@ -586,8 +604,8 @@ void AddonOptions()
 			const int columns = 6; // Number of columns in the grid
 			if (ImGui::BeginTable("US_Servers_Table", columns)) {
 				int i = 0;
-				for (auto w : worldInventory->getAllWorlds(GetLocaleAsString(settings.locale))) {
-					if (w->id / 1000 == 1) {
+				for (auto w : worldInventory->getAllAlliances(GetLocaleAsString(settings.locale))) {
+					if ((w->id - 10000) / 1000 == 1) {
 
 						if (i % columns == 0) {
 							ImGui::TableNextRow();
@@ -610,8 +628,8 @@ void AddonOptions()
 			const int columns = 6; // Number of columns in the grid
 			if (ImGui::BeginTable("EU_Servers_Table", columns)) {
 				int i = 0;
-				for (auto w : worldInventory->getAllWorlds(GetLocaleAsString(settings.locale))) {
-					if (w->id / 1000 == 2) {
+				for (auto w : worldInventory->getAllAlliances(GetLocaleAsString(settings.locale))) {
+					if ((w->id - 10000) / 1000 == 2) {
 
 						if (i % columns == 0) {
 							ImGui::TableNextRow();
@@ -631,9 +649,6 @@ void AddonOptions()
 			}
 		}
 	}
-
-	// TODO Settings for:
-	// - settings to disable a piece of the addon like "no titles but the widget" etc. for when I have more elements to show for
 }
 
 void AddonShortcut() {

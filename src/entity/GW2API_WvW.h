@@ -68,7 +68,15 @@ namespace gw2api::wvw {
 		j.at("id").get_to(match.id);
 		match.start_time = parse_date(j.at("start_time").get<std::string>());
 		match.end_time = parse_date(j.at("end_time").get<std::string>());
-		j.at("worlds").get_to(match.worlds);
+		//j.at("worlds").get_to(match.worlds);
+
+		json allworlds = j.at("all_worlds");
+		worlds worlds = {
+			allworlds["red"][0],
+			allworlds["red"][0],
+			allworlds["red"][0]
+		};
+		match.worlds = worlds;
 	}
 }
 

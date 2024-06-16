@@ -12,8 +12,6 @@
     <ClCompile Include="imgui\imgui_draw.cpp" />
     <ClCompile Include="imgui\imgui_tables.cpp" />
     <ClCompile Include="imgui\imgui_widgets.cpp" />
-    <ClCompile Include="imgui\imgui_impl_dx11.cpp" />
-    <ClCompile Include="imgui\imgui_impl_win32.cpp" />
     <ClCompile Include="service\WorldInventory.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -36,8 +34,6 @@
     <ClInclude Include="imgui\imstb_rectpack.h" />
     <ClInclude Include="imgui\imstb_textedit.h" />
     <ClInclude Include="imgui\imstb_truetype.h" />
-    <ClInclude Include="imgui\imgui_impl_dx11.h" />
-    <ClInclude Include="imgui\imgui_impl_win32.h" />
     <ClInclude Include="Settings.h" />
     <ClInclude Include="service\HttpClient.h" />
     <ClInclude Include="entity\GW2API_Worlds.h" />
@@ -66,6 +62,7 @@
     <None Include="..\README.md" />
     <None Include="..\vcpkg.json" />
     <None Include="..\vcpkg-configuration.json" />
+    <None Include="resources\alliances_en.json" />
   </ItemGroup>
   <ItemGroup>
     <Font Include="resources\mapfont_asura.ttf" />

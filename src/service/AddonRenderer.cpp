@@ -283,7 +283,15 @@ void Renderer::renderMinimapWidget() {
 
 	if (ImGui::Begin("MiniSectorWidget", (bool*)0, flags)) {
 		ImGui::PushFont(fontWidget);
-		float textX = (settings.widgetWidth - textSize.x) / 2.0f;
+		// alignment left - center - right
+		float textX;
+		switch (settings.widgetTextAlign) {
+			case 0: textX = (settings.widgetWidth - textSize.x) / 2.0f; break; 
+			case 1: textX = 1; break; // extra padding to the left
+			case 2: textX = settings.widgetWidth - textSize.x - 1; break; // -1 = extra padding to the right
+			default: textX = (settings.widgetWidth - textSize.x) / 2.0f;
+		}
+
 		ImGui::SetCursorPosX(textX + 1.0f);
 		ImGui::SetCursorPosY(1.0f);
 		ImGui::TextColored(shadowColor, output.c_str());
@@ -755,17 +763,35 @@ std::string replacePlaceholderTexts(std::string text, bool useSampleText) {
 	greenTeamText = "Green";
 	if (match != nullptr) {
 		gw2api::worlds::world* redWorld = worldInventory->getWorld(GetLocaleAsString(settings.locale), match->worlds.red);
-		if (redWorld != nullptr) {
+		gw2api::worlds::alliance* redAlliance = worldInventory->getAlliance(GetLocaleAsString(settings.locale), match->worlds.red);
+		
+		if (redAlliance != nullptr) {
+			redTeamText = redAlliance->name;
+		}
+		// Fallback to worlds just in case
+		else if (redWorld != nullptr) {
 			redTeamText = redWorld->name;
 		}
-
+	
 		gw2api::worlds::world* blueWorld = worldInventory->getWorld(GetLocaleAsString(settings.locale), match->worlds.blue);
-		if (blueWorld != nullptr) {
+		gw2api::worlds::alliance* blueAlliance = worldInventory->getAlliance(GetLocaleAsString(settings.locale), match->worlds.blue);
+
+		if (blueAlliance != nullptr) {
+			blueTeamText = blueAlliance->name;
+		}
+		// Fallback to worlds just in case
+		else if (blueWorld != nullptr) {
 			blueTeamText = blueWorld->name;
 		}
 
 		gw2api::worlds::world* greenWorld = worldInventory->getWorld(GetLocaleAsString(settings.locale), match->worlds.green);
-		if (greenWorld != nullptr) {
+		gw2api::worlds::alliance* greenAlliance = worldInventory->getAlliance(GetLocaleAsString(settings.locale), match->worlds.green);
+
+		if (greenAlliance != nullptr) {
+			greenTeamText = greenAlliance->name;
+		}
+		// Fallback to worlds just in case
+		else if (greenWorld != nullptr) {
 			greenTeamText = greenWorld->name;
 		}
 	}

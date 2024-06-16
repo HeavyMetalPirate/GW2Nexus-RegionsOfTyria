@@ -18,12 +18,14 @@
 #define IDR_FONTS_GENERIC_ANIM          1130
 #define IDR_FONTS_GENERIC_A             1131
 #define IDR_FONTS_GENERIC               1131
+#define IDR_JSON1                       1132
+#define IDR_JSON_ALLIANCES_EN           1132
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        1132
+#define _APS_NEXT_RESOURCE_VALUE        1133
 #define _APS_NEXT_COMMAND_VALUE         40002
 #define _APS_NEXT_CONTROL_VALUE         1001
 #define _APS_NEXT_SYMED_VALUE           101

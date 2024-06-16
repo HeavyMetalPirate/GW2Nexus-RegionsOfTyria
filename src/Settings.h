@@ -221,6 +221,7 @@ struct Settings {
     float widgetPositionY;
     float widgetWidth;
     float widgetBackgroundOpacity;
+    int widgetTextAlign;
 
     // legacy display settings, deprecated
     std::string displayFormatSmall;
@@ -244,7 +245,8 @@ inline void to_json(json& j, const Settings& settings) {
         {"widgetPositionX", settings.widgetPositionX},
         {"widgetPositionY", settings.widgetPositionY},
         {"widgetWidth", settings.widgetWidth},
-        {"widgetBackgroundOpacity", settings.widgetBackgroundOpacity}
+        {"widgetBackgroundOpacity", settings.widgetBackgroundOpacity},
+        {"widgetTextAlign", settings.widgetTextAlign}
     };
 }
 inline void from_json(const json& j, Settings& settings) {
@@ -378,6 +380,12 @@ inline void from_json(const json& j, Settings& settings) {
     }
     else {
         settings.widgetBackgroundOpacity = 0.8f;
+    }
+    if (j.contains("widgetTextAlign")) {
+        j.at("widgetTextAlign").get_to(settings.widgetTextAlign);
+    }
+    else {
+        settings.widgetTextAlign = 0;
     }
 }
 /// ================================================================================
