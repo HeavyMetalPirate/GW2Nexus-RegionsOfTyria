@@ -81,16 +81,18 @@ Settings settings = {
 			"Sylvari", 28.0f, "@c / @r / @m", 72.0f, "@s", 300.0f, 25.0f, 1.0f,	{255,255,255}, "@s", 20.0f, {255,255,255}
 		}
 	}, // Racial Font settings end
-	-1, // wvw world
-	0, // fontMode
-	false, // disableAnimations
-	true, // enablePopup
-	false, // widgetEnabled
+	-1,		// wvw world
+	0,		// fontMode
+	false,	// disableAnimations
+	true,	// enablePopup
+	false,	// hidePopupInCompetitive;
+	false,	// hidePopupInCombat;
+	false,	// widgetEnabled
 	100.0f, // widgetPosX
 	100.0f, // widgetPosY
 	200.0f, // widgetWidt
-	0.8f, // widgetBackgroundOpacity
-	0, // widgetTextAlign
+	0.8f,	// widgetBackgroundOpacity
+	0,		// widgetTextAlign
 
 	// deprecated Legacy settings
 	"@c / @r / @m",
@@ -442,7 +444,10 @@ void AddonOptions()
 	ImGui::Checkbox("Enable Popup Text", &settings.enablePopup);
 	ImGui::SameLine();
 	ImGui::Checkbox("Disable animations", &settings.disableAnimations);
-	
+	ImGui::Checkbox("Disable popup in competitive modes", &settings.hidePopupInCompetitive);
+	ImGui::SameLine();
+	ImGui::Checkbox("Disable popup in combat", &settings.hidePopupInCombat);
+
 	ImGui::Checkbox("Enable mini widget", &settings.widgetEnabled);
 	ImGui::DragFloat("Widget Position (X)", &settings.widgetPositionX, 1.0f, 0, ImGui::GetIO().DisplaySize.x, "%.2f");
 	ImGui::DragFloat("Widget Position (Y)", &settings.widgetPositionY, 1.0f, 0, ImGui::GetIO().DisplaySize.y, "%.2f");

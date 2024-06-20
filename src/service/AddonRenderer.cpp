@@ -305,6 +305,8 @@ void Renderer::renderMinimapWidget() {
 
 void Renderer::renderSectorInfo() {
 	if (!settings.enablePopup) return; 
+	if (settings.hidePopupInCombat && MumbleLink->Context.IsInCombat) return;
+	if (settings.hidePopupInCompetitive && MumbleLink->Context.IsCompetitive) return;
 
 	MapData* currentMap = currentMapService.getCurrentMap();
 	if (currentMap == nullptr) return;

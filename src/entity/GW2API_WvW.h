@@ -73,8 +73,8 @@ namespace gw2api::wvw {
 		json allworlds = j.at("all_worlds");
 		worlds worlds = {
 			allworlds["red"][0],
-			allworlds["red"][0],
-			allworlds["red"][0]
+			allworlds["blue"][0],
+			allworlds["green"][0]
 		};
 		match.worlds = worlds;
 	}

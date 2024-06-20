@@ -214,6 +214,8 @@ struct Settings {
     int fontMode;
     bool disableAnimations;
     bool enablePopup;
+    bool hidePopupInCompetitive;
+    bool hidePopupInCombat;
 
     // Widget generic stuff
     bool widgetEnabled;
@@ -239,6 +241,8 @@ inline void to_json(json& j, const Settings& settings) {
         {"worldId", settings.worldId},
         {"fontMode", settings.fontMode},
         {"enablePopup", settings.enablePopup},
+        {"hidePopupInCompetitive", settings.hidePopupInCompetitive},
+        {"hidePopupInCombat", settings.hidePopupInCombat},
         {"disableAnimations", settings.disableAnimations},
         {"fontSettings", settings.fontSettings},
         {"widgetEnabled", settings.widgetEnabled},
@@ -323,6 +327,18 @@ inline void from_json(const json& j, Settings& settings) {
     }
     else {
         settings.disableAnimations = false;
+    }
+    if (j.contains("hidePopupInCompetitive")) {
+        j.at("hidePopupInCompetitive").get_to(settings.hidePopupInCompetitive);
+    }
+    else {
+        settings.hidePopupInCompetitive = false;
+    }
+    if (j.contains("hidePopupInCombat")) {
+        j.at("hidePopupInCombat").get_to(settings.hidePopupInCombat);
+    }
+    else {
+        settings.hidePopupInCombat = false;
     }
     if (j.contains("fontSettings")) {
         j.at("fontSettings").get_to(settings.fontSettings);
