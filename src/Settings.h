@@ -92,6 +92,10 @@ struct RacialFontSettings {
     std::string widgetDisplayFormat;
     float widgetFontSize;
     float widgetFontColor[3];
+
+    int fontBorderMode;
+    int fontBorderOffset;
+    float fontBorderColor[3];
 };
 inline void to_json(json& j, const RacialFontSettings& s) {
     j = json{
@@ -104,6 +108,9 @@ inline void to_json(json& j, const RacialFontSettings& s) {
         {"spacing", s.spacing},
         {"fontScale", s.fontScale},
         {"fontColor", s.fontColor},
+        {"fontBorderMode", s.fontBorderMode},
+        {"fontBorderOffset", s.fontBorderOffset},
+        {"fontBorderColor", s.fontBorderColor},
         {"widgetDisplayFormat", s.widgetDisplayFormat},
         {"widgetFontSize", s.widgetFontSize},
         {"widgetFontColor", s.widgetFontColor}
@@ -194,6 +201,26 @@ inline void from_json(const json& j, RacialFontSettings& s) {
         s.widgetFontColor[1] = 255.0f;
         s.widgetFontColor[2] = 255.0f;
     }
+    if (j.contains("fontBorderMode")) {
+        j.at("fontBorderMode").get_to(s.fontBorderMode);
+    }
+    else {
+        s.fontBorderMode = 1;
+    }
+    if (j.contains("fontBorderOffset")) {
+        j.at("fontBorderOffset").get_to(s.fontBorderOffset);
+    }
+    else {
+        s.fontBorderOffset = 2;
+    }
+    if (j.contains("fontBorderColor")) {
+        j.at("fontBorderColor").get_to(s.fontBorderColor);
+    }
+    else {
+        s.fontBorderColor[0] = 0;
+        s.fontBorderColor[1] = 0;
+        s.fontBorderColor[2] = 0;
+    }
 }
 
 /// <summary>
@@ -210,12 +237,14 @@ struct Settings {
     // required for WvW maps
     int worldId;
 
-    // TODO settings for font overrides / modes i.e. "use racial fonts", "use just font of race X or generic font" etc.
     int fontMode;
+    int widgetFontMode;
     bool disableAnimations;
     bool enablePopup;
     bool hidePopupInCompetitive;
     bool hidePopupInCombat;
+    int popupAnimationSpeed;
+    int popupAnimationDuration;
 
     // Widget generic stuff
     bool widgetEnabled;
@@ -240,10 +269,13 @@ inline void to_json(json& j, const Settings& settings) {
         {"locale", settings.locale},
         {"worldId", settings.worldId},
         {"fontMode", settings.fontMode},
+        {"widgetFontMode", settings.widgetFontMode},
         {"enablePopup", settings.enablePopup},
         {"hidePopupInCompetitive", settings.hidePopupInCompetitive},
         {"hidePopupInCombat", settings.hidePopupInCombat},
         {"disableAnimations", settings.disableAnimations},
+        {"popupAnimationSpeed", settings.popupAnimationSpeed},
+        {"popupAnimationDuration", settings.popupAnimationDuration}, 
         {"fontSettings", settings.fontSettings},
         {"widgetEnabled", settings.widgetEnabled},
         {"widgetPositionX", settings.widgetPositionX},
@@ -320,7 +352,13 @@ inline void from_json(const json& j, Settings& settings) {
         j.at("fontMode").get_to(settings.fontMode);
     }
     else {
-        settings.fontMode = 0;
+        settings.fontMode = 1; // generic
+    }
+    if (j.contains("widgetFontMode")) {
+        j.at("widgetFontMode").get_to(settings.widgetFontMode);
+    }
+    else {
+        settings.widgetFontMode = 1; // generic
     }
     if (j.contains("disableAnimations")) {
         j.at("disableAnimations").get_to(settings.disableAnimations);
@@ -339,6 +377,18 @@ inline void from_json(const json& j, Settings& settings) {
     }
     else {
         settings.hidePopupInCombat = false;
+    }
+    if (j.contains("popupAnimationSpeed")) {
+        j.at("popupAnimationSpeed").get_to(settings.popupAnimationSpeed);
+    }
+    else {
+        settings.popupAnimationSpeed = 35;
+    }
+    if (j.contains("popupAnimationDuration")) {
+        j.at("popupAnimationDuration").get_to(settings.popupAnimationDuration);
+    }
+    else {
+        settings.popupAnimationDuration = 3;
     }
     if (j.contains("fontSettings")) {
         j.at("fontSettings").get_to(settings.fontSettings);

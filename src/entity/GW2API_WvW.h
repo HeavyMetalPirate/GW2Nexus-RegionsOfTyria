@@ -71,10 +71,26 @@ namespace gw2api::wvw {
 		//j.at("worlds").get_to(match.worlds);
 
 		json allworlds = j.at("all_worlds");
+		
+		int redTeamId = 0, blueTeamId = 0, greenTeamId = 0;
+		for (auto id : allworlds["red"].get<std::vector<int>>()) {
+			if (id - 10000 > 0) { redTeamId = id; break; }
+		}
+		for (auto id : allworlds["blue"].get<std::vector<int>>()) {
+			if (id - 10000 > 0) { blueTeamId = id; break; }
+		}
+		for (auto id : allworlds["green"].get<std::vector<int>>()) {
+			if (id - 10000 > 0) { greenTeamId = id; break; }
+		}
+		
+		if (redTeamId == 0) redTeamId = allworlds["red"][0].get<int>();
+		if (blueTeamId == 0) blueTeamId = allworlds["blue"][0].get<int>();
+		if (greenTeamId == 0) greenTeamId = allworlds["green"][0].get<int>();
+
 		worlds worlds = {
-			allworlds["red"][0],
-			allworlds["blue"][0],
-			allworlds["green"][0]
+			redTeamId,
+			blueTeamId,
+			greenTeamId
 		};
 		match.worlds = worlds;
 	}

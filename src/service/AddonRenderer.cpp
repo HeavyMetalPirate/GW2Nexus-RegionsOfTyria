@@ -107,7 +107,6 @@ void Renderer::setRacialFont(Mumble::ERace race) {
 	else if ((settings.fontMode == 0 && race == Mumble::ERace::Asura) || settings.fontMode == 2) {
 		fontLarge = this->fonts[fontNameAsuraLarge];
 		fontSmall = this->fonts[fontNameAsuraSmall];
-		fontWidget = this->fonts[fontNameAsuraWidget];
 
 		fontAnimLarge = this->fonts[fontNameAsuraAnimLarge];
 		fontAnimSmall = this->fonts[fontNameAsuraAnimSmall];
@@ -117,8 +116,7 @@ void Renderer::setRacialFont(Mumble::ERace race) {
 	else if ((settings.fontMode == 0 && race == Mumble::ERace::Charr) || settings.fontMode == 3) {
 		fontLarge = this->fonts[fontNameCharrLarge];
 		fontSmall = this->fonts[fontNameCharrSmall];
-		fontWidget = this->fonts[fontNameCharrWidget];
-
+		
 		fontAnimLarge = this->fonts[fontNameCharrAnimLarge];
 		fontAnimSmall = this->fonts[fontNameCharrAnimSmall];
 
@@ -127,8 +125,7 @@ void Renderer::setRacialFont(Mumble::ERace race) {
 	else if ((settings.fontMode == 0 && race == Mumble::ERace::Human) || settings.fontMode == 4) {
 		fontLarge = this->fonts[fontNameHumanLarge];
 		fontSmall = this->fonts[fontNameHumanSmall];
-		fontWidget = this->fonts[fontNameHumanWidget];
-
+		
 		fontAnimLarge = this->fonts[fontNameHumanAnimLarge];
 		fontAnimSmall = this->fonts[fontNameHumanAnimSmall];
 		
@@ -137,8 +134,7 @@ void Renderer::setRacialFont(Mumble::ERace race) {
 	else if ((settings.fontMode == 0 && race == Mumble::ERace::Norn) || settings.fontMode == 5) {
 		fontLarge = this->fonts[fontNameNornLarge];
 		fontSmall = this->fonts[fontNameNornSmall];
-		fontWidget = this->fonts[fontNameNornWidget];
-
+		
 		fontAnimLarge = this->fonts[fontNameNornAnimLarge];
 		fontAnimSmall = this->fonts[fontNameNornAnimSmall];
 
@@ -147,12 +143,33 @@ void Renderer::setRacialFont(Mumble::ERace race) {
 	else if ((settings.fontMode == 0 && race == Mumble::ERace::Sylvari) || settings.fontMode == 6) {
 		fontLarge = this->fonts[fontNameSylvariLarge];
 		fontSmall = this->fonts[fontNameSylvariSmall];
-		fontWidget = this->fonts[fontNameSylvariWidget];
-
+		
 		fontAnimLarge = this->fonts[fontNameSylvariAnimLarge];
 		fontAnimSmall = this->fonts[fontNameSylvariAnimSmall];
 
 		fontSettings = &settings.fontSettings[5];
+	}
+
+	// Widget Font Mode
+	if (settings.widgetFontMode == 1) {
+		fontWidget = this->fonts[fontNameGenericWidget];
+	}
+	// if fontmode == 0 => pick font according to race; else fontmode tells us which race the user wants, starting with 2 = asura to 6 = sylvari
+	else if ((settings.widgetFontMode == 0 && race == Mumble::ERace::Asura) || settings.widgetFontMode == 2) {
+		fontWidget = this->fonts[fontNameAsuraWidget];
+
+	}
+	else if ((settings.widgetFontMode == 0 && race == Mumble::ERace::Charr) || settings.widgetFontMode == 3) {
+		fontWidget = this->fonts[fontNameCharrWidget];
+	}
+	else if ((settings.widgetFontMode == 0 && race == Mumble::ERace::Human) || settings.widgetFontMode == 4) {
+		fontWidget = this->fonts[fontNameHumanWidget];
+	}
+	else if ((settings.widgetFontMode == 0 && race == Mumble::ERace::Norn) || settings.widgetFontMode == 5) {
+		fontWidget = this->fonts[fontNameNornWidget];
+	}
+	else if ((settings.widgetFontMode == 0 && race == Mumble::ERace::Sylvari) || settings.widgetFontMode == 6) {
+		fontWidget = this->fonts[fontNameSylvariWidget];
 	}
 
 #ifndef NDEBUG
@@ -265,6 +282,9 @@ void Renderer::renderMinimapWidget() {
 		APIDefs->Log(ELogLevel_WARNING, ADDON_NAME, "FontWidget not loaded, fallback to Nexus default font.");
 	}
 
+	// still not loaded - might occurr during font reload so skip now
+	if (fontWidget == nullptr || !fontWidget->IsLoaded()) { fontsPicked = false; return; }
+
 	std::string output = fontSettings->widgetDisplayFormat;
 	output = replacePlaceholderTexts(output, false);
 
@@ -273,7 +293,7 @@ void Renderer::renderMinimapWidget() {
 	ImVec2 textSize = ImGui::CalcTextSize(output.c_str());
 	ImGui::PopFont();
 	ImVec4 textColor = ImVec4(fontSettings->widgetFontColor[0], fontSettings->widgetFontColor[1], fontSettings->widgetFontColor[2], 1.0f);
-	ImVec4 shadowColor = ImVec4(0, 0, 0, 1);
+	ImVec4 shadowColor = ImVec4(fontSettings->fontBorderColor[0], fontSettings->fontBorderColor[1], fontSettings->fontBorderColor[2], 1);
 
 	ImVec2 widgetPos = ImVec2(settings.widgetPositionX, settings.widgetPositionY);
 	ImVec2 widgetSize = ImVec2(settings.widgetWidth, textSize.y);
@@ -292,9 +312,30 @@ void Renderer::renderMinimapWidget() {
 			default: textX = (settings.widgetWidth - textSize.x) / 2.0f;
 		}
 
-		ImGui::SetCursorPosX(textX + 1.0f);
-		ImGui::SetCursorPosY(1.0f);
-		ImGui::TextColored(shadowColor, output.c_str());
+		switch (fontSettings->fontBorderMode) {
+		case 0: // no border
+			break; 
+		case 1: // shadow
+			ImGui::SetCursorPosX(textX + fontSettings->fontBorderOffset);
+			ImGui::SetCursorPosY(1.0f);
+			ImGui::TextColored(shadowColor, output.c_str());
+			break;
+		case 2: // full border
+			ImGui::SetCursorPosX(textX - fontSettings->fontBorderOffset);
+			ImGui::SetCursorPosY(0 - fontSettings->fontBorderOffset);
+
+			ImVec2 currentPos = ImGui::GetCursorPos();
+			for (int x = 0; x <= fontSettings->fontBorderOffset * 2; x++)
+			{
+				for (int y = 0; y <= fontSettings->fontBorderOffset * 2; y++)
+				{
+					ImGui::SetCursorPos({ currentPos.x + static_cast<float>(x), currentPos.y + static_cast<float>(y) });
+					ImGui::TextColored(shadowColor, output.c_str());
+				}
+			}	
+			break;
+		}
+		
 		ImGui::SetCursorPosX(textX);
 		ImGui::SetCursorPosY(0.0f);
 		ImGui::TextColored(textColor, output.c_str());
@@ -312,7 +353,10 @@ void Renderer::renderSectorInfo() {
 	if (currentMap == nullptr) return;
 	if (fontSettings == nullptr && !fontsPicked) {
 		setRacialFont(currentRace);
-	} 
+	}
+	else if (!fontsPicked) {
+		setRacialFont(currentRace);
+	}
 	if (fontSettings == nullptr) {
 #ifndef NDEBUG
 		APIDefs->Log(ELogLevel_WARNING, ADDON_NAME, "Could not find font settings, possibly still initializing.");
@@ -322,9 +366,11 @@ void Renderer::renderSectorInfo() {
 
 	if (currentSectorId != currentMap->currentSector.id // sector change
 		|| currentMapId != currentMap->id) { // map change, we could technically end up in a sector with same id since I parse unknown sectors as -1
-	
+		
 		currentMapId = currentMap->id;
 		currentSectorId = currentMap->currentSector.id;
+
+		APIDefs->RaiseEvent("EV_TYRIAN_REGIONS_SECTOR_CHANGED", currentMap);
 
 		// check if we are currently animating and cancel the animation, yeah?
 		if (animating) {
@@ -404,6 +450,12 @@ void Renderer::renderInfo(float opacityOverride, bool useSampleText) {
 			APIDefs->Log(ELogLevel_WARNING, ADDON_NAME, "FontAnimSmall not loaded, fallback to Nexus default font.");
 			fontAnimSmall = (ImFont*)NexusLink->Font;
 		}
+
+		// still not loaded - might occurr during font reload so skip now
+		if (fontLarge == nullptr || !fontLarge->IsLoaded()) { fontsPicked = false; return; }
+		if (fontSmall == nullptr || !fontSmall->IsLoaded()) { fontsPicked = false; return; }
+		if (fontAnimLarge == nullptr || !fontAnimLarge->IsLoaded()) { fontsPicked = false; return; }
+		if (fontAnimSmall == nullptr || !fontAnimSmall->IsLoaded()) { fontsPicked = false; return; }
 
 		// Large Text
 		centerText(largeText, fontSettings->verticalPosition, opacityOverride);
@@ -560,7 +612,7 @@ void Renderer::renderTextAnimation(const char* text, float opacityOverride, bool
 	}
 
 	ImVec4 color = ImVec4(fontSettings->fontColor[0], fontSettings->fontColor[1], fontSettings->fontColor[2], opacityOverride);
-	ImVec4 shadow = ImVec4(0, 0, 0, opacityOverride);
+	ImVec4 shadow = ImVec4(fontSettings->fontBorderColor[0], fontSettings->fontBorderColor[1], fontSettings->fontBorderColor[2], opacityOverride);
 
 	ImVec2 originalCursorPos = ImGui::GetCursorPos();
 
@@ -592,6 +644,22 @@ void Renderer::renderTextAnimation(const char* text, float opacityOverride, bool
 
 		ImGui::PushStyleColor(ImGuiCol_Text, isShadow? shadow : color);
 		ImGui::TextUnformatted(p, p + 1);
+		
+		// draw outline
+		if (isShadow && fontSettings->fontBorderMode == 2) {
+			ImVec2 currentPos = ImGui::GetCursorPos();
+			for (int x = 0; x <= fontSettings->fontBorderOffset * 2; x++)
+			{
+				for (int y = 0; y <= fontSettings->fontBorderOffset * 2; y++)
+				{
+					ImGui::SetCursorPos({ currentX + static_cast<float>(x), originalCursorPos.y + static_cast<float>(y) });
+					ImGui::TextUnformatted(p, p + 1);
+				}
+			}
+
+			ImGui::SetCursorPos(currentPos);
+		}
+		
 		ImGui::PopStyleColor();
 
 		// reset position
@@ -605,8 +673,8 @@ void Renderer::renderTextAnimation(const char* text, float opacityOverride, bool
 		
 		if (p[1]) {	
 			ImVec2 delta = main->CalcTextSizeA(font1Size, FLT_MAX, 0.0f, p, p + 1);
-			//currentX += delta.x + (main->GetCharAdvance(p[0])); // shift currentX to (character size if it were main font) + (kerning if it was main font)
-			currentX += main->GetCharAdvance(p[0]);
+			
+			currentX += main->GetCharAdvance(p[0]) * NexusLink->Scaling;
 			ImGui::SetCursorPos(ImVec2(currentX, originalCursorPos.y));
 		}
 	}
@@ -630,8 +698,18 @@ void Renderer::centerText(std::string text, float textY, float opacityOverride) 
 	float textX = (windowSize.x - textSize.x) / 2.0f;
 	ImGui::PopFont();
 
-	ImGui::SetCursorScreenPos(ImVec2(textX + 2, textY + 2));
-	renderTextAnimation(text.c_str(), opacityOverride, true, true);
+	int offset = fontSettings->fontBorderOffset;
+	if (fontSettings->fontBorderMode == 0) {
+		//No shadow
+	}
+	else if (fontSettings->fontBorderMode == 1) {
+		ImGui::SetCursorScreenPos(ImVec2(textX + offset, textY + offset));
+		renderTextAnimation(text.c_str(), opacityOverride, true, true);
+	}
+	else if (fontSettings->fontBorderMode == 2) {
+		ImGui::SetCursorScreenPos(ImVec2(textX - offset, textY - offset));
+		renderTextAnimation(text.c_str(), opacityOverride, true, true);
+	}
 	ImGui::SetCursorPos(ImVec2(textX, textY));
 	renderTextAnimation(text.c_str(), opacityOverride, true, false);
 }
@@ -645,8 +723,18 @@ void Renderer::centerTextSmall(std::string text, float textY, float opacityOverr
 	float textX = (windowSize.x - textSize.x) / 2.0f;
 	ImGui::PopFont();
 
-	ImGui::SetCursorScreenPos(ImVec2(textX + 2, textY + 2));
-	renderTextAnimation(text.c_str(), opacityOverride, false, true);
+	int offset = fontSettings->fontBorderOffset;
+	if (fontSettings->fontBorderMode == 0) {
+		//No shadow
+	}
+	else if (fontSettings->fontBorderMode == 1) {
+		ImGui::SetCursorScreenPos(ImVec2(textX + offset, textY + offset));
+		renderTextAnimation(text.c_str(), opacityOverride, false, true);
+	}
+	else if (fontSettings->fontBorderMode == 2) {
+		ImGui::SetCursorScreenPos(ImVec2(textX - offset, textY - offset));
+		renderTextAnimation(text.c_str(), opacityOverride, false, true);
+	}
 	ImGui::SetCursorPos(ImVec2(textX, textY));
 	renderTextAnimation(text.c_str(), opacityOverride, false, false);
 }
@@ -687,11 +775,14 @@ void fade() {
 				opacity = 1.0f;
 				break;
 			}
-
-			Sleep(35);
+			int sleepTime = settings.popupAnimationSpeed;
+			if (sleepTime < 0) sleepTime = 0;
+			Sleep(sleepTime);
 		}
-		// Stay sharp
-		for (int i = 0; i < 3000; i++) {
+		// Stay 
+		int animationDuration = settings.popupAnimationDuration;
+		if (animationDuration <= 0) animationDuration = 3;
+		for (int i = 0; i < animationDuration * 1000; i++) {
 			if (unloading || cancelAnimation) {
 				cancelCurrentAnimation();
 				return;
@@ -713,7 +804,9 @@ void fade() {
 				break;
 			}
 
-			Sleep(35);
+			int sleepTime = settings.popupAnimationSpeed;
+			if (sleepTime < 0) sleepTime = 0;
+			Sleep(sleepTime);
 		}
 	}
 	catch (const std::exception& e) {
@@ -763,6 +856,7 @@ std::string replacePlaceholderTexts(std::string text, bool useSampleText) {
 	redTeamText = "Red";
 	blueTeamText = "Blue";
 	greenTeamText = "Green";
+
 	if (match != nullptr) {
 		gw2api::worlds::world* redWorld = worldInventory->getWorld(GetLocaleAsString(settings.locale), match->worlds.red);
 		gw2api::worlds::alliance* redAlliance = worldInventory->getAlliance(GetLocaleAsString(settings.locale), match->worlds.red);

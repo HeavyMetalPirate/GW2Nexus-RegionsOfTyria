@@ -35,7 +35,9 @@ void loadFontsThreaded();
 void releaseFonts();
 // Keybinds
 void ProcessKeybind(const char* aIdentifer);
+// Events
 void HandleIdentityChanged(void* anEventArgs);
+void HandleAddonMetaData(void* eventArgs);
 // Settings
 void LoadSettings();
 void StoreSettings();
@@ -68,25 +70,28 @@ Settings settings = {
 	// Racial Font settings [6] 
 	{
 		{
-			"Generic", 28.0f, "@c / @r / @m", 72.0f, "@s", 300.0f, 25.0f, 1.0f,	{255,255,255}, "@s", 20.0f, {255,255,255}
+			"Generic", 28.0f, "@c / @r / @m", 72.0f, "@s", 300.0f, 25.0f, 1.0f,	{255,255,255}, "@s", 20.0f, {255,255,255}, 1, 2, {0,0,0}
 		}, {
-			"Asura", 28.0f,	"@c / @r / @m",	72.0f, "@s", 300.0f, 25.0f,	1.0f, {255,255,255}, "@s", 20.0f, {255,255,255}
+			"Asura", 28.0f,	"@c / @r / @m",	72.0f, "@s", 300.0f, 25.0f,	1.0f, {255,255,255}, "@s", 20.0f, {255,255,255}, 1, 2, {0,0,0}
 		}, {
-			"Charr", 28.0f,	"@c / @r / @m",	72.0f, "@s", 300.0f, 25.0f,	1.0f, {255,255,255}, "@s", 20.0f, {255,255,255}
+			"Charr", 28.0f,	"@c / @r / @m",	72.0f, "@s", 300.0f, 25.0f,	1.0f, {255,255,255}, "@s", 20.0f, {255,255,255}, 1, 2, {0,0,0}
 		}, {
-			"Human", 28.0f,	"@c / @r / @m",	72.0f, "@s", 300.0f, 25.0f, 1.0f, {255,255,255}, "@s", 20.0f, {255,255,255}
+			"Human", 28.0f,	"@c / @r / @m",	72.0f, "@s", 300.0f, 25.0f, 1.0f, {255,255,255}, "@s", 20.0f, {255,255,255}, 1, 2, {0,0,0}
 		}, {
-			"Norn", 28.0f, "@c / @r / @m", 72.0f, "@s",	300.0f,	25.0f, 1.0f, {255,255,255}, "@s", 20.0f, {255,255,255}
+			"Norn", 28.0f, "@c / @r / @m", 72.0f, "@s",	300.0f,	25.0f, 1.0f, {255,255,255}, "@s", 20.0f, {255,255,255}, 1, 2, {0,0,0}
 		}, {
-			"Sylvari", 28.0f, "@c / @r / @m", 72.0f, "@s", 300.0f, 25.0f, 1.0f,	{255,255,255}, "@s", 20.0f, {255,255,255}
+			"Sylvari", 28.0f, "@c / @r / @m", 72.0f, "@s", 300.0f, 25.0f, 1.0f,	{255,255,255}, "@s", 20.0f, {255,255,255}, 1, 2, {0,0,0}
 		}
 	}, // Racial Font settings end
 	-1,		// wvw world
-	0,		// fontMode
+	1,		// fontMode
+	1,
 	false,	// disableAnimations
 	true,	// enablePopup
 	false,	// hidePopupInCompetitive;
 	false,	// hidePopupInCombat;
+	35,		// popupAnimationSpeed
+	3,		// popupAnimationDuration
 	false,	// widgetEnabled
 	100.0f, // widgetPosX
 	100.0f, // widgetPosY
@@ -140,8 +145,8 @@ extern "C" __declspec(dllexport) AddonDefinition* GetAddonDef()
 	AddonDef.APIVersion = NEXUS_API_VERSION;
 	AddonDef.Name = "Regions Of Tyria";
 	AddonDef.Version.Major = 1;
-	AddonDef.Version.Minor = 4;
-	AddonDef.Version.Build = 3;
+	AddonDef.Version.Minor = 5;
+	AddonDef.Version.Build = 0;
 	AddonDef.Version.Revision = 0;
 	AddonDef.Author = "HeavyMetalPirate.2695";
 	AddonDef.Description = "Displays the current sector whenever you cross borders, much like your favorite (MMO)RPG does.";
@@ -183,6 +188,7 @@ void AddonLoad(AddonAPI* aApi)
 
 	// Register Events
 	APIDefs->SubscribeEvent("EV_MUMBLE_IDENTITY_UPDATED", HandleIdentityChanged);
+	APIDefs->SubscribeEvent("EV_TYRIAN_REGIONS_CHECK", HandleAddonMetaData);
 
 	// Unpack the addon resources to the addon data
 	unpackResources();
@@ -215,7 +221,9 @@ void ReceiveFont(const char* aIdentifier, void* aFont) {
 	std::string str = aIdentifier;
 
 	if (aFont == nullptr) {
+#ifndef NDEBUG
 		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME,("Received nullptr for font " + std::string(aIdentifier)).c_str());
+#endif // !NDEBUG
 		return;
 	}
 
@@ -348,6 +356,7 @@ void AddonUnload()
 	APIDefs->RemoveSimpleShortcut(ADDON_NAME_LONG);
 
 	APIDefs->UnsubscribeEvent("EV_MUMBLE_IDENTITY_UPDATED", HandleIdentityChanged);
+	APIDefs->UnsubscribeEvent("EV_TYRIAN_REGIONS_CHECK", HandleAddonMetaData);
 
 	APIDefs->DeregisterRender(PreRender);
 	APIDefs->DeregisterRender(PostRender);
@@ -441,17 +450,31 @@ void AddonOptions()
 	ImGui::Separator();
 	ImGui::Text("Features");
 
-	ImGui::Checkbox("Enable Popup Text", &settings.enablePopup);
+	if (ImGui::Checkbox("Enable Popup Text", &settings.enablePopup)) {
+		StoreSettings();
+	}
 	ImGui::SameLine();
-	ImGui::Checkbox("Disable animations", &settings.disableAnimations);
-	ImGui::Checkbox("Disable popup in competitive modes", &settings.hidePopupInCompetitive);
+	if (ImGui::Checkbox("Disable animations", &settings.disableAnimations)) {
+		StoreSettings();
+	}
+	if (ImGui::Checkbox("Disable popup in competitive modes", &settings.hidePopupInCompetitive)) {
+		StoreSettings();
+	}
 	ImGui::SameLine();
-	ImGui::Checkbox("Disable popup in combat", &settings.hidePopupInCombat);
+	if (ImGui::Checkbox("Disable popup in combat", &settings.hidePopupInCombat)) {
+		StoreSettings();
+	}
 
-	ImGui::Checkbox("Enable mini widget", &settings.widgetEnabled);
-	ImGui::DragFloat("Widget Position (X)", &settings.widgetPositionX, 1.0f, 0, ImGui::GetIO().DisplaySize.x, "%.2f");
-	ImGui::DragFloat("Widget Position (Y)", &settings.widgetPositionY, 1.0f, 0, ImGui::GetIO().DisplaySize.y, "%.2f");
-	ImGui::DragFloat("Widget Width", &settings.widgetWidth, 1.0f, 1, ImGui::GetIO().DisplaySize.x / 2);
+	ImGui::DragInt("Popup Duration (sec)", &settings.popupAnimationDuration, 0.1f, 1, 20);
+	ImGui::DragInt("Animation Speed", &settings.popupAnimationSpeed, 0.1f, 0, 500);
+	ImGui::Text("Lower value = faster animation");
+
+	if (ImGui::Checkbox("Enable mini widget", &settings.widgetEnabled)) {
+		StoreSettings();
+	}
+	ImGui::DragFloat("Widget Position (X)", &settings.widgetPositionX, 0.1f, 0, ImGui::GetIO().DisplaySize.x, "%.2f");
+	ImGui::DragFloat("Widget Position (Y)", &settings.widgetPositionY, 0.1f, 0, ImGui::GetIO().DisplaySize.y, "%.2f");
+	ImGui::DragFloat("Widget Width", &settings.widgetWidth, 0.1f, 1, ImGui::GetIO().DisplaySize.x / 2);
 	ImGui::DragFloat("Widget Background", &settings.widgetBackgroundOpacity, 0.05f, 0.0f, 1.0f);
 
 	static const char* textAlignComboItems[3];
@@ -459,7 +482,7 @@ void AddonOptions()
 	textAlignComboItems[1] = "Left";
 	textAlignComboItems[2] = "Right";
 	if (ImGui::Combo("Widget Text Alignment", &settings.widgetTextAlign, textAlignComboItems, IM_ARRAYSIZE(textAlignComboItems))) {
-
+		StoreSettings();
 	}
 
 	ImGui::Separator();
@@ -474,7 +497,12 @@ void AddonOptions()
 	comboBoxItems[5] = "Use Norn font everywhere";
 	comboBoxItems[6] = "Use Sylvari font everywhere";
 
-	if (ImGui::Combo("##combo", &settings.fontMode, comboBoxItems, IM_ARRAYSIZE(comboBoxItems))) {
+	if (ImGui::Combo("Font Mode", &settings.fontMode, comboBoxItems, IM_ARRAYSIZE(comboBoxItems))) {
+		StoreSettings();
+		renderer.updateFontSettings();
+	}
+	if (ImGui::Combo("Widget Font mode", &settings.fontMode, comboBoxItems, IM_ARRAYSIZE(comboBoxItems))) {
+		StoreSettings();
 		renderer.updateFontSettings();
 	}
 	
@@ -514,6 +542,19 @@ void AddonOptions()
 								fs.fontColor[1] = settings.fontSettings[j].fontColor[1];
 								fs.fontColor[2] = settings.fontSettings[j].fontColor[2];
 
+								fs.fontBorderMode = settings.fontSettings[j].fontBorderMode;
+								fs.fontBorderOffset = settings.fontSettings[j].fontBorderOffset;
+								fs.fontBorderColor[0] = settings.fontSettings[j].fontBorderColor[0];
+								fs.fontBorderColor[1] = settings.fontSettings[j].fontBorderColor[1];
+								fs.fontBorderColor[2] = settings.fontSettings[j].fontBorderColor[2];
+
+								fs.widgetDisplayFormat = settings.fontSettings[j].widgetDisplayFormat;
+								fs.widgetFontSize = settings.fontSettings[j].widgetFontSize;
+								fs.widgetFontColor[0] = settings.fontSettings[j].widgetFontColor[0];
+								fs.widgetFontColor[1] = settings.fontSettings[j].widgetFontColor[1];
+								fs.widgetFontColor[2] = settings.fontSettings[j].widgetFontColor[2];
+
+								StoreSettings();
 							}
 						}
 					}
@@ -531,14 +572,25 @@ void AddonOptions()
 					fs.displayFormatLarge = bufferLarge;
 				}
 
-				ImGui::DragFloat("Vertical Position", &fs.verticalPosition, 1.0f, 0.0f, ImGui::GetIO().DisplaySize.y);
-				ImGui::DragFloat("Spacing", &fs.spacing, 1.0f, -300.0f, 300.0f);
+				ImGui::DragFloat("Vertical Position", &fs.verticalPosition, 0.1f, 0.0f, ImGui::GetIO().DisplaySize.y);
+				ImGui::DragFloat("Spacing", &fs.spacing, 0.1f, -300.0f, 300.0f);
 
 				ImGui::TextWrapped("Attention: changing font sizes requires reloading the fonts to apply the changes.");
 				ImGui::Text("Use the button below to reload the fonts.");
 				ImGui::InputFloat("Small Font Size", &fs.smallFontSize);
 				ImGui::InputFloat("Large Font Size", &fs.largeFontSize);
 				ImGui::ColorEdit3("Font Color", fs.fontColor);
+
+				static const char* fontBorderModeComboItems[3];
+				fontBorderModeComboItems[0] = "None";
+				fontBorderModeComboItems[1] = "Shadow";
+				fontBorderModeComboItems[2] = "Full Border";
+				if (ImGui::Combo("Text Border", &fs.fontBorderMode, fontBorderModeComboItems, IM_ARRAYSIZE(fontBorderModeComboItems))) {
+
+				}
+				ImGui::DragInt("Text Border Offset", &fs.fontBorderOffset, 0.1f, 0, 10);
+				ImGui::ColorEdit3("Text Border Color", fs.fontBorderColor);
+				
 
 				ImGui::Separator();
 				ImGui::Text(("Widget Settings for font " + fs.race).c_str());
@@ -559,6 +611,8 @@ void AddonOptions()
 	ImGui::Separator();
 	
 	if (ImGui::Button("Reload fonts")) {
+		StoreSettings(); // store current settings in case of crash (weird fonts etc)
+
 		// if samples is active, disable samples first and enable afterwards.
 		int selectedShowTemplate = -1;
 		for (int j = 0; j < 6; ++j) {
@@ -575,7 +629,8 @@ void AddonOptions()
 			showTemplate[selectedShowTemplate] = true;
 		}
 	}
-
+	ImGui::TextWrapped("To use custom fonts, navigate to your <GW2Install>/addons/TyrianRegions folder. Inside this folder, replace the existing *.ttf files with the fonts of your liking.");
+	ImGui::TextWrapped("Font files in the pattern 'font_*.ttf' are used for the actual text display, fonts in the pattern 'fonts_*_anim.ttf' are used for the animation phase.");
 	ImGui::TextWrapped("Use the button 'Reset fonts to default' to unpack all font files again, overwriting any pre-existing ones in the addon folder.");
 	if (ImGui::Button("Reset fonts to default")) {
 		APIDefs->Log(ELogLevel_INFO, ADDON_NAME, "Font reset requested.");
@@ -621,6 +676,7 @@ void AddonOptions()
 							settings.worldId = w->id;
 							mapLoader.loadWvWMatchFromAPI();
 							showServerSelection = false;
+							StoreSettings();
 						}
 						
 						i++;
@@ -645,6 +701,7 @@ void AddonOptions()
 							settings.worldId = w->id;
 							mapLoader.loadWvWMatchFromAPI();
 							showServerSelection = false;
+							StoreSettings();
 						}
 
 						i++;
@@ -814,4 +871,8 @@ void releaseFonts() {
 
 	renderer.clearFonts();
 	APIDefs->Log(ELogLevel_INFO, ADDON_NAME, "Font unload queued successfully.");
+}
+
+void HandleAddonMetaData(void* eventArgs) {
+	APIDefs->RaiseEvent("EV_TYRIAN_REGIONS_AVAILABLE", &AddonDef);
 }

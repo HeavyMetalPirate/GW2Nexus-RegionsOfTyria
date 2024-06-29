@@ -56,3 +56,28 @@ Mind that loading the new versions will replace **all** files. If you have custo
 I am active on the Raidcore.gg discord, and Regions of Tyria has its own channel: https://discord.com/channels/410828272679518241/1243221036175069284
 
 I'd love to hear suggestions, or just see showcases of what you did with this addon!
+
+### For Developers
+The availability of this addon can be tested by raising an event `EV_TYRIAN_REGIONS_AVAILABLE`.
+Prompted, the addon will emit an event `EV_TYRIAN_REGIONS_AVAILABLE` with the current `AddonDefinition` as a payload. This allows for sanity checks against versions and such.
+
+The addon also emits events `EV_TYRIAN_REGIONS_SECTOR_CHANGED` whenever a sector change has been detected (= the popup text gets rendered).
+The payload for this event contains the following `MapData` struct:
+
+```c++
+struct MapData {
+	int id;
+	std::string name;
+	int regionId;
+	std::string regionName;
+	int continentId;
+	std::string continentName;
+
+	SectorData currentSector;
+};
+
+struct SectorData {
+	int id;
+	std::string name;
+};
+```
