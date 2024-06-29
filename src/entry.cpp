@@ -501,7 +501,7 @@ void AddonOptions()
 		StoreSettings();
 		renderer.updateFontSettings();
 	}
-	if (ImGui::Combo("Widget Font mode", &settings.fontMode, comboBoxItems, IM_ARRAYSIZE(comboBoxItems))) {
+	if (ImGui::Combo("Widget Font mode", &settings.widgetFontMode, comboBoxItems, IM_ARRAYSIZE(comboBoxItems))) {
 		StoreSettings();
 		renderer.updateFontSettings();
 	}
