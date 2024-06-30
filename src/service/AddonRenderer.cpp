@@ -630,7 +630,15 @@ void Renderer::renderTextAnimation(const char* text, float opacityOverride, bool
 	float originalSecondaryScaling = secondary->Scale;
 	secondary->Scale = scalingFactor;
 
-	for (const char* p = text; *p; p++) {
+	const char* p = text;
+	mbstate_t state = mbstate_t(); // Initialize the conversion state
+
+	for (const char* p = text; *p;) {
+		int char_len = 1;
+		if ((*p & 0x80) == 0) char_len = 1;       // 0xxxxxxx
+		if ((*p & 0xE0) == 0xC0) char_len = 2;    // 110xxxxx
+		if ((*p & 0xF0) == 0xE0) char_len = 3;    // 1110xxxx
+		if ((*p & 0xF8) == 0xF0) char_len = 4;    // 11110xxx
 
 		// Pick font based on opacity; lower opacity more favorably to secondary
 		ImFont* selectedFont = (opacityOverride < 1.0f && ((float)rand() / RAND_MAX) > opacityOverride) ? secondary : main;
@@ -643,7 +651,7 @@ void Renderer::renderTextAnimation(const char* text, float opacityOverride, bool
 		}
 
 		ImGui::PushStyleColor(ImGuiCol_Text, isShadow? shadow : color);
-		ImGui::TextUnformatted(p, p + 1);
+		ImGui::TextUnformatted(p, p + char_len);
 		
 		// draw outline
 		if (isShadow && fontSettings->fontBorderMode == 2) {
@@ -653,7 +661,7 @@ void Renderer::renderTextAnimation(const char* text, float opacityOverride, bool
 				for (int y = 0; y <= fontSettings->fontBorderOffset * 2; y++)
 				{
 					ImGui::SetCursorPos({ currentX + static_cast<float>(x), originalCursorPos.y + static_cast<float>(y) });
-					ImGui::TextUnformatted(p, p + 1);
+					ImGui::TextUnformatted(p, p + char_len);
 				}
 			}
 
@@ -672,11 +680,13 @@ void Renderer::renderTextAnimation(const char* text, float opacityOverride, bool
 		ImGui::PopFont();
 		
 		if (p[1]) {	
-			ImVec2 delta = main->CalcTextSizeA(font1Size, FLT_MAX, 0.0f, p, p + 1);
+			ImVec2 delta = main->CalcTextSizeA(font1Size, FLT_MAX, 0.0f, p, p + char_len);
 			
 			currentX += main->GetCharAdvance(p[0]) * NexusLink->Scaling;
 			ImGui::SetCursorPos(ImVec2(currentX, originalCursorPos.y));
 		}
+
+		p += char_len;
 	}
 	secondary->Scale = originalSecondaryScaling;
 }

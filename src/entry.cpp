@@ -147,7 +147,7 @@ extern "C" __declspec(dllexport) AddonDefinition* GetAddonDef()
 	AddonDef.Version.Major = 1;
 	AddonDef.Version.Minor = 5;
 	AddonDef.Version.Build = 0;
-	AddonDef.Version.Revision = 0;
+	AddonDef.Version.Revision = 1;
 	AddonDef.Author = "HeavyMetalPirate.2695";
 	AddonDef.Description = "Displays the current sector whenever you cross borders, much like your favorite (MMO)RPG does.";
 	AddonDef.Load = AddonLoad;
