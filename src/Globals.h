@@ -55,7 +55,7 @@ inline void replaceAll(std::string& str, const std::string& from, const std::str
 	}
 }
 inline std::string getAddonFolder() {
-	std::string pathFolder = APIDefs->GetAddonDirectory(ADDON_NAME);
+	std::string pathFolder = APIDefs->Paths.GetAddonDirectory(ADDON_NAME);
 	// Create folder if not exist
 	if (!fs::exists(pathFolder)) {
 		try {

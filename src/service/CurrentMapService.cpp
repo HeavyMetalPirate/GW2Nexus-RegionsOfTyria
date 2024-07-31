@@ -79,8 +79,8 @@ gw2::coordinate CurrentMapService::calculatePos() {
 	if (map == nullptr) return { 0,0 };
 
 	// convert from metres (mumble) to inches (map API) by * 39.3700787
-	float x = MumbleLink->AvatarPosition.X * 39.3700787;
-	float y = MumbleLink->AvatarPosition.Z * 39.3700787;
+	float x = MumbleLink->AvatarPosition.X * 39.3700787f;
+	float y = MumbleLink->AvatarPosition.Z * 39.3700787f;
 
 	float calculatedX, calculatedY;
 	calculatedX = map->continentRect[0].x + (1 * (x - map->mapRect[0].x) / (map->mapRect[1].x - map->mapRect[0].x) * (map->continentRect[1].x - map->continentRect[0].x));

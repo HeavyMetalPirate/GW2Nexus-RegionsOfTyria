@@ -38,7 +38,7 @@ static void unpackResource(const int resourceName, const std::string& resourceTy
 		return;
 	}
 
-	std::string pathFolder = APIDefs->GetAddonDirectory(ADDON_NAME);
+	std::string pathFolder = APIDefs->Paths.GetAddonDirectory(ADDON_NAME);
 	// Create folder if not exist
 	if (!fs::exists(pathFolder)) {
 		try {

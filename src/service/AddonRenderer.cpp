@@ -26,7 +26,7 @@ RacialFontSettings* fontSettings = nullptr;
 bool fontsPicked;
 
 bool fontsLoaded = false;
-int expectedFontCount = 24;
+int expectedFontCount = 30;
 
 Renderer::Renderer() {}
 Renderer::~Renderer() {}
@@ -72,11 +72,21 @@ void Renderer::registerFont(std::string name, ImFont* font) {
 	APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, ("Registering font: " + name).c_str());
 	APIDefs->Log(ELogLevel_TRACE, ADDON_NAME, font->GetDebugName());
 #endif
-	fonts.emplace(name, font);
+	if (fonts.contains(name)) {
+		fonts[name] = font;
+		// we receive a font update so update font settings
+		updateFontSettings();
+	}
+	else {
+		fonts.emplace(name, font);
+	}
 
 	if (fonts.size() == expectedFontCount) {
 		APIDefs->Log(ELogLevel_INFO, ADDON_NAME, "All fonts loaded and registered with the renderer.");
 		fontsLoaded = true;
+	}
+	else {
+		fontsLoaded = false;
 	}
 }
 
@@ -198,10 +208,19 @@ void Renderer::postRender(ImGuiIO& io) {
 
 void Renderer::render() {
 	if (unloading) return;
-	renderSampleInfo();
-	renderSectorInfo();
-	renderMinimapWidget();
-	renderDebugInfo();
+	try {
+		renderSampleInfo();
+		renderSectorInfo();
+		renderMinimapWidget();
+		renderDebugInfo();
+	}
+	catch (const std::exception& e) {
+		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Exception in render.");
+		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, e.what());
+	}
+	catch (...) {
+		APIDefs->Log(ELogLevel_CRITICAL, ADDON_NAME, "Unknown exception in render.");
+	}
 }
 
 void Renderer::renderSampleInfo() {
@@ -251,7 +270,7 @@ void Renderer::renderMinimapWidget() {
 	if (!settings.widgetEnabled) return;
 	if (!NexusLink->IsGameplay) return;
 	if (MumbleLink->Context.IsMapOpen) return;
-
+	
 	MapData* currentMap = currentMapService.getCurrentMap();
 	if (currentMap == nullptr) return;
 	if (fontSettings == nullptr && !fontsPicked) {
@@ -322,7 +341,7 @@ void Renderer::renderMinimapWidget() {
 			break;
 		case 2: // full border
 			ImGui::SetCursorPosX(textX - fontSettings->fontBorderOffset);
-			ImGui::SetCursorPosY(0 - fontSettings->fontBorderOffset);
+			ImGui::SetCursorPosY(0.0f - fontSettings->fontBorderOffset);
 
 			ImVec2 currentPos = ImGui::GetCursorPos();
 			for (int x = 0; x <= fontSettings->fontBorderOffset * 2; x++)
@@ -370,7 +389,7 @@ void Renderer::renderSectorInfo() {
 		currentMapId = currentMap->id;
 		currentSectorId = currentMap->currentSector.id;
 
-		APIDefs->RaiseEvent("EV_TYRIAN_REGIONS_SECTOR_CHANGED", currentMap);
+		APIDefs->Events.Raise("EV_TYRIAN_REGIONS_SECTOR_CHANGED", currentMap);
 
 		// check if we are currently animating and cancel the animation, yeah?
 		if (animating) {

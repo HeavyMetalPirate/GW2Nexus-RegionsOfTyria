@@ -34,7 +34,7 @@ void loadFonts();
 void loadFontsThreaded();
 void releaseFonts();
 // Keybinds
-void ProcessKeybind(const char* aIdentifer);
+void ProcessKeybind(const char* aIdentifer, bool aIsRelease);
 // Events
 void HandleIdentityChanged(void* anEventArgs);
 void HandleAddonMetaData(void* eventArgs);
@@ -146,8 +146,8 @@ extern "C" __declspec(dllexport) AddonDefinition* GetAddonDef()
 	AddonDef.Name = "Regions Of Tyria";
 	AddonDef.Version.Major = 1;
 	AddonDef.Version.Minor = 5;
-	AddonDef.Version.Build = 0;
-	AddonDef.Version.Revision = 1;
+	AddonDef.Version.Build = 1;
+	AddonDef.Version.Revision = 0;
 	AddonDef.Author = "HeavyMetalPirate.2695";
 	AddonDef.Description = "Displays the current sector whenever you cross borders, much like your favorite (MMO)RPG does.";
 	AddonDef.Load = AddonLoad;
@@ -173,12 +173,12 @@ void AddonLoad(AddonAPI* aApi)
 	ImGui::SetCurrentContext((ImGuiContext*)APIDefs->ImguiContext); // cast to ImGuiContext*
 	ImGui::SetAllocatorFunctions((void* (*)(size_t, void*))APIDefs->ImguiMalloc, (void(*)(void*, void*))APIDefs->ImguiFree); // on imgui 1.80+
 
-	NexusLink = (NexusLinkData*)APIDefs->GetResource("DL_NEXUS_LINK");
-	MumbleLink = (Mumble::Data*)APIDefs->GetResource("DL_MUMBLE_LINK");
+	NexusLink = (NexusLinkData*)APIDefs->DataLink.Get("DL_NEXUS_LINK");
+	MumbleLink = (Mumble::Data*)APIDefs->DataLink.Get("DL_MUMBLE_LINK");
 
 	// TODO clean this code up at some point, keep it for now so you remember how to do this
 	//APIDefs->AddShortcut("QA_MYFIRSTADDON", "ICON_PIKACHU", "ICON_JAKE", KB_MFA, "ASDF!");
-	APIDefs->RegisterKeybindWithString(KB_MFA, ProcessKeybind, "CTRL+ALT+SHIFT+L");
+	APIDefs->InputBinds.RegisterWithString(KB_MFA, ProcessKeybind, "CTRL+ALT+SHIFT+L");
 	//APIDefs->AddSimpleShortcut(ADDON_NAME_LONG, AddonShortcut);
 
 	renderer = Renderer();
@@ -187,8 +187,8 @@ void AddonLoad(AddonAPI* aApi)
 	worldInventory = new WorldInventory();
 
 	// Register Events
-	APIDefs->SubscribeEvent("EV_MUMBLE_IDENTITY_UPDATED", HandleIdentityChanged);
-	APIDefs->SubscribeEvent("EV_TYRIAN_REGIONS_CHECK", HandleAddonMetaData);
+	APIDefs->Events.Subscribe("EV_MUMBLE_IDENTITY_UPDATED", HandleIdentityChanged);
+	APIDefs->Events.Subscribe("EV_TYRIAN_REGIONS_CHECK", HandleAddonMetaData);
 
 	// Unpack the addon resources to the addon data
 	unpackResources();
@@ -208,10 +208,10 @@ void AddonLoad(AddonAPI* aApi)
 	mapLoader.initializeMapStorage();
 
 	// Add an options window and a regular render callback - always do this at the end I guess
-	APIDefs->RegisterRender(ERenderType_PreRender, PreRender);
-	APIDefs->RegisterRender(ERenderType_PostRender, PostRender);
-	APIDefs->RegisterRender(ERenderType_OptionsRender, AddonOptions);
-	APIDefs->RegisterRender(ERenderType_Render, AddonRender);
+	APIDefs->Renderer.Register(ERenderType_PreRender, PreRender);
+	APIDefs->Renderer.Register(ERenderType_PostRender, PostRender);
+	APIDefs->Renderer.Register(ERenderType_OptionsRender, AddonOptions);
+	APIDefs->Renderer.Register(ERenderType_Render, AddonRender);
 
 	// Log initialize
 	APIDefs->Log(ELogLevel_DEBUG, ADDON_NAME, "<c=#00ff00>Initialize complete.</c>");
@@ -352,16 +352,16 @@ void AddonUnload()
 	renderer.unload();
 
 	//APIDefs->RemoveShortcut("QA_MYFIRSTADDON");
-	APIDefs->DeregisterKeybind(KB_MFA);
+	APIDefs->InputBinds.Deregister(KB_MFA);
 	//APIDefs->RemoveSimpleShortcut(ADDON_NAME_LONG);
 
-	APIDefs->UnsubscribeEvent("EV_MUMBLE_IDENTITY_UPDATED", HandleIdentityChanged);
-	APIDefs->UnsubscribeEvent("EV_TYRIAN_REGIONS_CHECK", HandleAddonMetaData);
+	APIDefs->Events.Unsubscribe("EV_MUMBLE_IDENTITY_UPDATED", HandleIdentityChanged);
+	APIDefs->Events.Unsubscribe("EV_TYRIAN_REGIONS_CHECK", HandleAddonMetaData);
 
-	APIDefs->DeregisterRender(PreRender);
-	APIDefs->DeregisterRender(PostRender);
-	APIDefs->DeregisterRender(AddonRender);
-	APIDefs->DeregisterRender(AddonOptions);
+	APIDefs->Renderer.Deregister(PreRender);
+	APIDefs->Renderer.Deregister(PostRender);
+	APIDefs->Renderer.Deregister(AddonRender);
+	APIDefs->Renderer.Deregister(AddonOptions);
 
 	releaseFonts();
 
@@ -512,6 +512,29 @@ void AddonOptions()
 	if (ImGui::BeginTabBar("##Tabs")) {
 		int i = -1; // counter variable for templateRace index
 		for (auto& fs : settings.fontSettings) {
+
+			// Font identifier formats:
+			// ROT_FONT_<RACE>_ANIM_LARGE
+			// ROT_FONT_<RACE>_ANIM_SMALL
+			// ROT_FONT_<RACE>_WIDGET
+			// ROT_FONT_<RACE>_SMALL
+			// ROT_FONT_<RACE>_LARGE
+			std::string raceUpper = fs.race;
+			std::ranges::transform(raceUpper, raceUpper.begin(), [](unsigned char c) {
+				return std::toupper(c);
+			});
+
+			std::string fontAnimLargeId = "ROT_FONT_<RACE>_ANIM_LARGE";
+			replaceAll(fontAnimLargeId, "<RACE>", raceUpper);
+			std::string fontAnimSmallId = "ROT_FONT_<RACE>_ANIM_SMALL";
+			replaceAll(fontAnimSmallId, "<RACE>", raceUpper);
+			std::string fontLargeId = "ROT_FONT_<RACE>_LARGE";
+			replaceAll(fontLargeId, "<RACE>", raceUpper);
+			std::string fontSmallId = "ROT_FONT_<RACE>_SMALL";
+			replaceAll(fontSmallId, "<RACE>", raceUpper);
+			std::string fontWidgetId = "ROT_FONT_<RACE>_WIDGET";
+			replaceAll(fontWidgetId, "<RACE>", raceUpper);
+
 			++i;
 			if (ImGui::BeginTabItem(fs.race.c_str())) {
 				ImGui::Text(("Popup Text Settings for font " + fs.race).c_str());
@@ -554,6 +577,8 @@ void AddonOptions()
 								fs.widgetFontColor[1] = settings.fontSettings[j].widgetFontColor[1];
 								fs.widgetFontColor[2] = settings.fontSettings[j].widgetFontColor[2];
 
+								// TODO change font sizes with API
+
 								StoreSettings();
 							}
 						}
@@ -574,11 +599,15 @@ void AddonOptions()
 
 				ImGui::DragFloat("Vertical Position", &fs.verticalPosition, 0.1f, 0.0f, ImGui::GetIO().DisplaySize.y);
 				ImGui::DragFloat("Spacing", &fs.spacing, 0.1f, -300.0f, 300.0f);
+				if (ImGui::InputFloat("Small Font Size", &fs.smallFontSize)) {
+					APIDefs->Fonts.Resize(fontSmallId.c_str(), fs.smallFontSize);
+					APIDefs->Fonts.Resize(fontAnimSmallId.c_str(), fs.smallFontSize);
+				}
+				if (ImGui::InputFloat("Large Font Size", &fs.largeFontSize)) {
+					APIDefs->Fonts.Resize(fontLargeId.c_str(), fs.largeFontSize);
+					APIDefs->Fonts.Resize(fontAnimLargeId.c_str(), fs.smallFontSize);
 
-				ImGui::TextWrapped("Attention: changing font sizes requires reloading the fonts to apply the changes.");
-				ImGui::Text("Use the button below to reload the fonts.");
-				ImGui::InputFloat("Small Font Size", &fs.smallFontSize);
-				ImGui::InputFloat("Large Font Size", &fs.largeFontSize);
+				}
 				ImGui::ColorEdit3("Font Color", fs.fontColor);
 
 				static const char* fontBorderModeComboItems[3];
@@ -599,7 +628,9 @@ void AddonOptions()
 				if (ImGui::InputText("Widget Display Format", bufferWidget, sizeof(bufferWidget))) {
 					fs.widgetDisplayFormat = bufferWidget;
 				}
-				ImGui::InputFloat("Widget Font Size", &fs.widgetFontSize);
+				if (ImGui::InputFloat("Widget Font Size", &fs.widgetFontSize)) {
+					APIDefs->Fonts.Resize(fontWidgetId.c_str(), fs.widgetFontSize);
+				}
 				ImGui::ColorEdit3("Widget Font Color", fs.widgetFontColor);
 
 				ImGui::EndTabItem();
@@ -720,7 +751,7 @@ void AddonShortcut() {
 	}
 }
 
-void ProcessKeybind(const char* aIdentifier)
+void ProcessKeybind(const char* aIdentifier, bool aIsRelease)
 {
 	// TODO clean this up at some point, keep it for now to remember how this works if we need it
 	if (strcmp(aIdentifier, KB_MFA) == 0)
@@ -780,40 +811,41 @@ void StoreSettings() {
 }
 
 void loadFonts() {
-	std::string pathFolder = APIDefs->GetAddonDirectory(ADDON_NAME);
-	APIDefs->AddFontFromFile("ROT_FONT_GENERIC_SMALL", settings.fontSettings[0].smallFontSize, (pathFolder + "/font_generic.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_GENERIC_LARGE", settings.fontSettings[0].largeFontSize, (pathFolder + "/font_generic.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_GENERIC_WIDGET", settings.fontSettings[0].widgetFontSize, (pathFolder + "/font_generic.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_ASURA_SMALL", settings.fontSettings[1].smallFontSize, (pathFolder + "/font_asura.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_ASURA_LARGE", settings.fontSettings[1].largeFontSize, (pathFolder + "/font_asura.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_ASURA_WIDGET", settings.fontSettings[1].widgetFontSize, (pathFolder + "/font_asura.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_CHARR_SMALL", settings.fontSettings[2].smallFontSize, (pathFolder + "/font_charr.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_CHARR_LARGE", settings.fontSettings[2].largeFontSize, (pathFolder + "/font_charr.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_CHARR_WIDGET", settings.fontSettings[2].widgetFontSize, (pathFolder + "/font_charr.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_HUMAN_SMALL", settings.fontSettings[3].smallFontSize, (pathFolder + "/font_human.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_HUMAN_LARGE", settings.fontSettings[3].largeFontSize, (pathFolder + "/font_human.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_HUMAN_WIDGET", settings.fontSettings[3].widgetFontSize, (pathFolder + "/font_human.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_NORN_SMALL", settings.fontSettings[4].smallFontSize, (pathFolder + "/font_norn.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_NORN_LARGE", settings.fontSettings[4].largeFontSize, (pathFolder + "/font_norn.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_NORN_WIDGET", settings.fontSettings[4].widgetFontSize, (pathFolder + "/font_norn.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_SYLVARI_SMALL", settings.fontSettings[5].smallFontSize, (pathFolder + "/font_sylvari.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_SYLVARI_LARGE", settings.fontSettings[5].largeFontSize, (pathFolder + "/font_sylvari.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_SYLVARI_WIDGET", settings.fontSettings[5].widgetFontSize, (pathFolder + "/font_sylvari.ttf").c_str(), ReceiveFont, nullptr);
+	std::string pathFolder = APIDefs->Paths.GetAddonDirectory(ADDON_NAME);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_GENERIC_SMALL", settings.fontSettings[0].smallFontSize, (pathFolder + "/font_generic.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_GENERIC_LARGE", settings.fontSettings[0].largeFontSize, (pathFolder + "/font_generic.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_GENERIC_WIDGET", settings.fontSettings[0].widgetFontSize, (pathFolder + "/font_generic.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_ASURA_SMALL", settings.fontSettings[1].smallFontSize, (pathFolder + "/font_asura.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_ASURA_LARGE", settings.fontSettings[1].largeFontSize, (pathFolder + "/font_asura.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_ASURA_WIDGET", settings.fontSettings[1].widgetFontSize, (pathFolder + "/font_asura.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_CHARR_SMALL", settings.fontSettings[2].smallFontSize, (pathFolder + "/font_charr.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_CHARR_LARGE", settings.fontSettings[2].largeFontSize, (pathFolder + "/font_charr.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_CHARR_WIDGET", settings.fontSettings[2].widgetFontSize, (pathFolder + "/font_charr.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_HUMAN_SMALL", settings.fontSettings[3].smallFontSize, (pathFolder + "/font_human.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_HUMAN_LARGE", settings.fontSettings[3].largeFontSize, (pathFolder + "/font_human.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_HUMAN_WIDGET", settings.fontSettings[3].widgetFontSize, (pathFolder + "/font_human.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_NORN_SMALL", settings.fontSettings[4].smallFontSize, (pathFolder + "/font_norn.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_NORN_LARGE", settings.fontSettings[4].largeFontSize, (pathFolder + "/font_norn.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_NORN_WIDGET", settings.fontSettings[4].widgetFontSize, (pathFolder + "/font_norn.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_SYLVARI_SMALL", settings.fontSettings[5].smallFontSize, (pathFolder + "/font_sylvari.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_SYLVARI_LARGE", settings.fontSettings[5].largeFontSize, (pathFolder + "/font_sylvari.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_SYLVARI_WIDGET", settings.fontSettings[5].widgetFontSize, (pathFolder + "/font_sylvari.ttf").c_str(), ReceiveFont, nullptr);
 
 	// animation fonts as well
-	APIDefs->AddFontFromFile("ROT_FONT_GENERIC_ANIM_SMALL", settings.fontSettings[0].smallFontSize, (pathFolder + "/fonts_generic_anim.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_GENERIC_ANIM_LARGE", settings.fontSettings[0].largeFontSize, (pathFolder + "/fonts_generic_anim.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_ASURA_ANIM_SMALL", settings.fontSettings[1].smallFontSize, (pathFolder + "/fonts_asura_anim.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_ASURA_ANIM_LARGE", settings.fontSettings[1].largeFontSize, (pathFolder + "/fonts_asura_anim.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_CHARR_ANIM_SMALL", settings.fontSettings[2].smallFontSize, (pathFolder + "/fonts_charr_anim.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_CHARR_ANIM_LARGE", settings.fontSettings[2].largeFontSize, (pathFolder + "/fonts_charr_anim.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_HUMAN_ANIM_SMALL", settings.fontSettings[3].smallFontSize, (pathFolder + "/fonts_human_anim.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_HUMAN_ANIM_LARGE", settings.fontSettings[3].largeFontSize, (pathFolder + "/fonts_human_anim.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_NORN_ANIM_SMALL", settings.fontSettings[4].smallFontSize, (pathFolder + "/fonts_norn_anim.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_NORN_ANIM_LARGE", settings.fontSettings[4].largeFontSize, (pathFolder + "/fonts_norn_anim.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_SYLVARI_ANIM_SMALL", settings.fontSettings[5].smallFontSize, (pathFolder + "/fonts_sylvari_anim.ttf").c_str(), ReceiveFont, nullptr);
-	APIDefs->AddFontFromFile("ROT_FONT_SYLVARI_ANIM_LARGE", settings.fontSettings[5].largeFontSize, (pathFolder + "/fonts_sylvari_anim.ttf").c_str(), ReceiveFont, nullptr);
-}
+	APIDefs->Fonts.AddFromFile("ROT_FONT_GENERIC_ANIM_SMALL", settings.fontSettings[0].smallFontSize, (pathFolder + "/fonts_generic_anim.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_GENERIC_ANIM_LARGE", settings.fontSettings[0].largeFontSize, (pathFolder + "/fonts_generic_anim.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_ASURA_ANIM_SMALL", settings.fontSettings[1].smallFontSize, (pathFolder + "/fonts_asura_anim.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_ASURA_ANIM_LARGE", settings.fontSettings[1].largeFontSize, (pathFolder + "/fonts_asura_anim.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_CHARR_ANIM_SMALL", settings.fontSettings[2].smallFontSize, (pathFolder + "/fonts_charr_anim.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_CHARR_ANIM_LARGE", settings.fontSettings[2].largeFontSize, (pathFolder + "/fonts_charr_anim.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_HUMAN_ANIM_SMALL", settings.fontSettings[3].smallFontSize, (pathFolder + "/fonts_human_anim.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_HUMAN_ANIM_LARGE", settings.fontSettings[3].largeFontSize, (pathFolder + "/fonts_human_anim.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_NORN_ANIM_SMALL", settings.fontSettings[4].smallFontSize, (pathFolder + "/fonts_norn_anim.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_NORN_ANIM_LARGE", settings.fontSettings[4].largeFontSize, (pathFolder + "/fonts_norn_anim.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_SYLVARI_ANIM_SMALL", settings.fontSettings[5].smallFontSize, (pathFolder + "/fonts_sylvari_anim.ttf").c_str(), ReceiveFont, nullptr);
+	APIDefs->Fonts.AddFromFile("ROT_FONT_SYLVARI_ANIM_LARGE", settings.fontSettings[5].largeFontSize, (pathFolder + "/fonts_sylvari_anim.ttf").c_str(), ReceiveFont, nullptr);
+}	
+
 
 void loadFontsThreaded() {
 	// in case we reload fonts during runtime we need to wait for the unload to be executed first
@@ -837,42 +869,42 @@ void loadFontsThreaded() {
 
 void releaseFonts() {
 
-	APIDefs->ReleaseFont("ROT_FONT_GENERIC_SMALL", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_GENERIC_LARGE", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_GENERIC_WIDGET", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_ASURA_SMALL", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_ASURA_LARGE", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_ASURA_WIDGET", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_CHARR_SMALL", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_CHARR_LARGE", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_CHARR_WIDGET", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_HUMAN_SMALL", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_HUMAN_LARGE", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_HUMAN_WIDGET", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_NORN_SMALL", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_NORN_LARGE", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_NORN_WIDGET", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_SYLVARI_SMALL", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_SYLVARI_LARGE", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_SYLVARI_WIDGET", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_GENERIC_SMALL", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_GENERIC_LARGE", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_GENERIC_WIDGET", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_ASURA_SMALL", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_ASURA_LARGE", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_ASURA_WIDGET", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_CHARR_SMALL", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_CHARR_LARGE", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_CHARR_WIDGET", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_HUMAN_SMALL", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_HUMAN_LARGE", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_HUMAN_WIDGET", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_NORN_SMALL", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_NORN_LARGE", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_NORN_WIDGET", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_SYLVARI_SMALL", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_SYLVARI_LARGE", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_SYLVARI_WIDGET", ReceiveFont);
 
-	APIDefs->ReleaseFont("ROT_FONT_GENERIC_ANIM_SMALL", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_GENERIC_ANIM_LARGE", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_ASURA_ANIM_SMALL", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_ASURA_ANIM_LARGE", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_CHARR_ANIM_SMALL", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_CHARR_ANIM_LARGE", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_HUMAN_ANIM_SMALL", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_HUMAN_ANIM_LARGE", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_NORN_ANIM_SMALL", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_NORN_ANIM_LARGE", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_SYLVARI_ANIM_SMALL", ReceiveFont);
-	APIDefs->ReleaseFont("ROT_FONT_SYLVARI_ANIM_LARGE", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_GENERIC_ANIM_SMALL", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_GENERIC_ANIM_LARGE", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_ASURA_ANIM_SMALL", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_ASURA_ANIM_LARGE", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_CHARR_ANIM_SMALL", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_CHARR_ANIM_LARGE", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_HUMAN_ANIM_SMALL", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_HUMAN_ANIM_LARGE", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_NORN_ANIM_SMALL", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_NORN_ANIM_LARGE", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_SYLVARI_ANIM_SMALL", ReceiveFont);
+	APIDefs->Fonts.Release("ROT_FONT_SYLVARI_ANIM_LARGE", ReceiveFont);
 
 	renderer.clearFonts();
 	APIDefs->Log(ELogLevel_INFO, ADDON_NAME, "Font unload queued successfully.");
 }
 
 void HandleAddonMetaData(void* eventArgs) {
-	APIDefs->RaiseEvent("EV_TYRIAN_REGIONS_AVAILABLE", &AddonDef);
+	APIDefs->Events.Raise("EV_TYRIAN_REGIONS_AVAILABLE", &AddonDef);
 }

@@ -88,7 +88,7 @@ void MapLoaderService::initializeMapStorage() {
 void MapLoaderService::loadAlliancesFromStorage() {
 	try {
 		// Get addon directory
-		std::string pathFolder = APIDefs->GetAddonDirectory(ADDON_NAME);
+		std::string pathFolder = APIDefs->Paths.GetAddonDirectory(ADDON_NAME);
 		// Create folder if not exist
 		if (!fs::exists(pathFolder)) {
 			try {
@@ -209,7 +209,7 @@ void MapLoaderService::unpackMaps() {
 		return;
 	}
 
-	std::string pathFolder = APIDefs->GetAddonDirectory(ADDON_NAME);
+	std::string pathFolder = APIDefs->Paths.GetAddonDirectory(ADDON_NAME);
 	// Create folder if not exist
 	if (!fs::exists(pathFolder)) {
 		try {
@@ -254,7 +254,7 @@ void MapLoaderService::unpackMaps() {
 void MapLoaderService::loadAllMapsFromStorage() {
 	try {
 		// Get addon directory
-		std::string pathFolder = APIDefs->GetAddonDirectory(ADDON_NAME);
+		std::string pathFolder = APIDefs->Paths.GetAddonDirectory(ADDON_NAME);
 		// Create folder if not exist
 		if (!fs::exists(pathFolder)) {
 			try {
