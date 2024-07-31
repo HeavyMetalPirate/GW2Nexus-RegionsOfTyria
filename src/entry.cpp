@@ -179,7 +179,7 @@ void AddonLoad(AddonAPI* aApi)
 	// TODO clean this code up at some point, keep it for now so you remember how to do this
 	//APIDefs->AddShortcut("QA_MYFIRSTADDON", "ICON_PIKACHU", "ICON_JAKE", KB_MFA, "ASDF!");
 	APIDefs->RegisterKeybindWithString(KB_MFA, ProcessKeybind, "CTRL+ALT+SHIFT+L");
-	APIDefs->AddSimpleShortcut(ADDON_NAME_LONG, AddonShortcut);
+	//APIDefs->AddSimpleShortcut(ADDON_NAME_LONG, AddonShortcut);
 
 	renderer = Renderer();
 	mapLoader = MapLoaderService();
@@ -353,7 +353,7 @@ void AddonUnload()
 
 	//APIDefs->RemoveShortcut("QA_MYFIRSTADDON");
 	APIDefs->DeregisterKeybind(KB_MFA);
-	APIDefs->RemoveSimpleShortcut(ADDON_NAME_LONG);
+	//APIDefs->RemoveSimpleShortcut(ADDON_NAME_LONG);
 
 	APIDefs->UnsubscribeEvent("EV_MUMBLE_IDENTITY_UPDATED", HandleIdentityChanged);
 	APIDefs->UnsubscribeEvent("EV_TYRIAN_REGIONS_CHECK", HandleAddonMetaData);

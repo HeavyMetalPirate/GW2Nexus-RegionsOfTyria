@@ -679,10 +679,11 @@ void Renderer::renderTextAnimation(const char* text, float opacityOverride, bool
 
 		ImGui::PopFont();
 		
-		if (p[1]) {	
-			ImVec2 delta = main->CalcTextSizeA(font1Size, FLT_MAX, 0.0f, p, p + char_len);
-			
-			currentX += main->GetCharAdvance(p[0]) * NexusLink->Scaling;
+		if (p[char_len]) {	
+			//currentX += main->GetCharAdvance(p[0] + p[1]) * NexusLink->Scaling;
+			ImGui::PushFont(main);
+			currentX += ImGui::CalcTextSize(p, p + char_len).x * NexusLink->Scaling;
+			ImGui::PopFont();
 			ImGui::SetCursorPos(ImVec2(currentX, originalCursorPos.y));
 		}
 
