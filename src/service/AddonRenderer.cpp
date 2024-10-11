@@ -654,10 +654,42 @@ void Renderer::renderTextAnimation(const char* text, float opacityOverride, bool
 
 	for (const char* p = text; *p;) {
 		int char_len = 1;
+		/*
 		if ((*p & 0x80) == 0) char_len = 1;       // 0xxxxxxx
 		if ((*p & 0xE0) == 0xC0) char_len = 2;    // 110xxxxx
 		if ((*p & 0xF0) == 0xE0) char_len = 3;    // 1110xxxx
 		if ((*p & 0xF8) == 0xF0) char_len = 4;    // 11110xxx
+		*/
+
+		// Decode UTF-8 manually
+		ImWchar character = 0;
+		unsigned char c = (unsigned char)*p;
+		if (c < 0x80) {
+			// Single-byte character (ASCII)
+			character = c;
+			char_len = 1;
+		}
+		else if ((c & 0xE0) == 0xC0) {
+			// Two-byte character (110xxxxx 10xxxxxx)
+			character = (ImWchar)((c & 0x1F) << 6);
+			character |= (p[1] & 0x3F);
+			char_len = 2;
+		}
+		else if ((c & 0xF0) == 0xE0) {
+			// Three-byte character (1110xxxx 10xxxxxx 10xxxxxx)
+			character = (ImWchar)((c & 0x0F) << 12);
+			character |= (p[1] & 0x3F) << 6;
+			character |= (p[2] & 0x3F);
+			char_len = 3;
+		}
+		else if ((c & 0xF8) == 0xF0) {
+			// Four-byte character (11110xxx 10xxxxxx 10xxxxxx 10xxxxxx)
+			character = (ImWchar)((c & 0x07) << 18);
+			character |= (p[1] & 0x3F) << 12;
+			character |= (p[2] & 0x3F) << 6;
+			character |= (p[3] & 0x3F);
+			char_len = 4;
+		}
 
 		// Pick font based on opacity; lower opacity more favorably to secondary
 		ImFont* selectedFont = (opacityOverride < 1.0f && ((float)rand() / RAND_MAX) > opacityOverride) ? secondary : main;
@@ -699,9 +731,21 @@ void Renderer::renderTextAnimation(const char* text, float opacityOverride, bool
 		ImGui::PopFont();
 		
 		if (p[char_len]) {	
-			//currentX += main->GetCharAdvance(p[0] + p[1]) * NexusLink->Scaling;
 			ImGui::PushFont(main);
-			currentX += ImGui::CalcTextSize(p, p + char_len).x * NexusLink->Scaling;
+			//currentX += ImGui::CalcTextSize(p, p + char_len).x * NexusLink->Scaling;
+
+			float kerning = 0.0f;
+
+			if (char_len == 1) {
+				// ez, just use the current character
+				kerning = main->FindGlyph((ImWchar)*p)->AdvanceX;
+			}
+			else {
+				// hard, because fuck it that's why
+				kerning = main->FindGlyph(character)->AdvanceX;
+			}
+			currentX += kerning;
+
 			ImGui::PopFont();
 			ImGui::SetCursorPos(ImVec2(currentX, originalCursorPos.y));
 		}
