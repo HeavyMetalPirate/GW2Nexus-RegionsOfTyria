@@ -744,7 +744,7 @@ void Renderer::renderTextAnimation(const char* text, float opacityOverride, bool
 				// hard, because fuck it that's why
 				kerning = main->FindGlyph(character)->AdvanceX;
 			}
-			currentX += kerning;
+			currentX += kerning * NexusLink->Scaling;
 
 			ImGui::PopFont();
 			ImGui::SetCursorPos(ImVec2(currentX, originalCursorPos.y));
